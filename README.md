@@ -4,6 +4,34 @@
 
 IcePorge is a modular, enterprise-grade malware analysis ecosystem that integrates dynamic sandboxing, static reverse engineering, threat intelligence feeds, and LLM-powered analysis into a cohesive workflow.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/badge/GitHub-icepaule-blue.svg)](https://github.com/icepaule)
+
+---
+
+## Quick Start
+
+### Clone Everything
+
+```bash
+# Clone main repository
+git clone https://github.com/icepaule/IcePorge.git
+cd IcePorge
+
+# Clone all component repositories
+./scripts/clone-all.sh
+
+# For HTTPS instead of SSH:
+./scripts/clone-all.sh --https
+```
+
+### Update All Repositories
+
+```bash
+# Pull latest from all repos
+./scripts/clone-all.sh
+```
+
 ---
 
 ## Architecture Overview
@@ -12,7 +40,7 @@ IcePorge is a modular, enterprise-grade malware analysis ecosystem that integrat
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           THREAT INTELLIGENCE FEEDS                          │
 │  URLhaus ── ThreatFox ── MalwareBazaar ── Hybrid Analysis ── Ransomware.live │
-└─────────────────────────────────────┬───────────────────────────────────────┘
+└─────────────────────────────────────────────────────────────────────────────┘
                                       │
                     ┌─────────────────┴─────────────────┐
                     ▼                                   ▼
@@ -25,55 +53,46 @@ IcePorge is a modular, enterprise-grade malware analysis ecosystem that integrat
                    ▼                                   ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                              ANALYSIS PLATFORM                                │
-│  ┌────────────────────────────────┐    ┌────────────────────────────────┐   │
-│  │         MWDB-Stack             │    │         CAPE Sandbox           │   │
-│  │  ┌──────────┐ ┌─────────────┐  │    │  ┌──────────┐ ┌─────────────┐  │   │
-│  │  │  MWDB    │ │   Karton    │  │    │  │ Dynamic  │ │   Static    │  │   │
-│  │  │  Core    │ │ Orchestrator│  │    │  │ Analysis │ │  Analysis   │  │   │
-│  │  └──────────┘ └─────────────┘  │    │  └──────────┘ └─────────────┘  │   │
-│  │       │              │         │    │       │              │         │   │
-│  │       └──────┬───────┘         │    │       └──────┬───────┘         │   │
-│  │              ▼                 │    │              │                 │   │
-│  │  ┌─────────────────────────┐   │    │              │                 │   │
-│  │  │ karton-cape-submitter   │───┼────┼──────────────┘                 │   │
-│  │  └─────────────────────────┘   │    │                                │   │
-│  └────────────────────────────────┘    └────────────────────────────────┘   │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │                    MWDB-Stack + CAPE Sandbox                           │  │
+│  │  ┌──────────┐ ┌─────────────┐ ┌──────────┐ ┌─────────────────────────┐ │  │
+│  │  │  MWDB    │ │   Karton    │ │   CAPE   │ │ karton-cape-submitter  │ │  │
+│  │  │  Core    │ │ Orchestrator│ │ Analysis │ │  (Automated Pipeline)  │ │  │
+│  │  └──────────┘ └─────────────┘ └──────────┘ └─────────────────────────┘ │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────────────┘
-                   │                                   │
-                   └───────────────┬───────────────────┘
-                                   ▼
+                                      │
+                                      ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                           AI-ENHANCED ANALYSIS                                │
-│  ┌────────────────────────────────┐    ┌────────────────────────────────┐   │
-│  │    Ghidra-Orchestrator        │    │       Malware-RAG              │   │
-│  │  ┌──────────┐ ┌─────────────┐  │    │  ┌──────────┐ ┌─────────────┐  │   │
-│  │  │ Ghidra   │ │   Ollama    │  │    │  │  Qdrant  │ │    LLM      │  │   │
-│  │  │ Headless │ │   LLM       │  │    │  │ VectorDB │ │  Analysis   │  │   │
-│  │  └──────────┘ └─────────────┘  │    │  └──────────┘ └─────────────┘  │   │
-│  └────────────────────────────────┘    └────────────────────────────────┘   │
+│                           AI-ENHANCED ANALYSIS (ki01)                         │
+│  ┌──────────────────────────────┐    ┌──────────────────────────────────┐   │
+│  │    Ghidra-Orchestrator      │    │       Malware-RAG                │   │
+│  │  • Headless Decompilation   │    │  • Vector Database (Qdrant)     │   │
+│  │  • LLM Code Understanding   │    │  • FOR610 Knowledge Base        │   │
+│  │  • Ollama Integration       │    │  • Context-Aware Analysis       │   │
+│  └──────────────────────────────┘    └──────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-                    ┌─────────────────────────────┐
-                    │           MISP              │
-                    │   Threat Intelligence       │
-                    │        Platform             │
-                    └─────────────────────────────┘
+                                      │
+                                      ▼
+                       ┌──────────────────────────┐
+                       │          MISP            │
+                       │  Threat Intelligence     │
+                       └──────────────────────────┘
 ```
 
 ---
 
 ## Components
 
-| Repository | Description | Status |
+| Repository | Description | Server |
 |------------|-------------|--------|
-| [IcePorge-MWDB-Stack](https://github.com/icepaule/IcePorge-MWDB-Stack) | MWDB-core with Karton orchestration | ✅ Active |
-| [IcePorge-MWDB-Feeder](https://github.com/icepaule/IcePorge-MWDB-Feeder) | Multi-source malware aggregator | ✅ Active |
-| [IcePorge-CAPE-Feed](https://github.com/icepaule/IcePorge-CAPE-Feed) | MalwareBazaar → CAPE → MISP pipeline | ✅ Active |
-| [IcePorge-CAPE-Mailer](https://github.com/icepaule/IcePorge-CAPE-Mailer) | Email-triggered analysis | ✅ Active |
-| [IcePorge-Cockpit](https://github.com/icepaule/IcePorge-Cockpit) | Web management UI | ✅ Active |
-| [IcePorge-Ghidra-Orchestrator](https://github.com/icepaule/IcePorge-Ghidra-Orchestrator) | Automated reverse engineering | ✅ Active |
-| [IcePorge-Malware-RAG](https://github.com/icepaule/IcePorge-Malware-RAG) | LLM-powered analysis | ✅ Active |
+| [IcePorge-MWDB-Stack](https://github.com/icepaule/IcePorge-MWDB-Stack) | MWDB-core with Karton orchestration | capev2 |
+| [IcePorge-MWDB-Feeder](https://github.com/icepaule/IcePorge-MWDB-Feeder) | Multi-source malware aggregator | capev2 |
+| [IcePorge-CAPE-Feed](https://github.com/icepaule/IcePorge-CAPE-Feed) | MalwareBazaar → CAPE → MISP pipeline | capev2 |
+| [IcePorge-CAPE-Mailer](https://github.com/icepaule/IcePorge-CAPE-Mailer) | Email-triggered analysis | capev2 |
+| [IcePorge-Cockpit](https://github.com/icepaule/IcePorge-Cockpit) | Web management UI (Cockpit modules) | capev2 |
+| [IcePorge-Ghidra-Orchestrator](https://github.com/icepaule/IcePorge-Ghidra-Orchestrator) | Automated reverse engineering | ki01 |
+| [IcePorge-Malware-RAG](https://github.com/icepaule/IcePorge-Malware-RAG) | LLM-powered RAG analysis | ki01 |
 
 ---
 
@@ -82,133 +101,91 @@ IcePorge is a modular, enterprise-grade malware analysis ecosystem that integrat
 ### Threat Intelligence Ingestion
 - **URLhaus** - Malicious URL and payload collection
 - **ThreatFox** - IOC aggregation with sample downloads
-- **MalwareBazaar** - Malware sample repository integration
+- **MalwareBazaar** - Malware sample repository
 - **Hybrid Analysis** - Falcon Sandbox public feed
-- **Ransomware.live** - Ransomware gang tracking and YARA rules
+- **Ransomware.live** - Ransomware gang tracking
 
 ### Dynamic Analysis
-- **CAPE Sandbox** - Advanced malware behavior analysis
+- **CAPE Sandbox** - Behavior analysis with config extraction
 - **Automated submission** - Tag-based routing and prefiltering
 - **MISP integration** - Automatic IOC export
 
 ### Static Analysis
-- **Ghidra Headless** - Automated decompilation and analysis
+- **Ghidra Headless** - Automated decompilation
 - **LLM Enhancement** - AI-powered code understanding
-- **API Extraction** - Automated function and string analysis
-
-### Orchestration
-- **Karton Framework** - CERT Polska's distributed task system
-- **MWDB** - Malware database with sample correlation
-- **Automated pipelines** - Feed → Analysis → Report
+- **API Extraction** - Function and string analysis
 
 ### AI-Enhanced Analysis
-- **Ollama Integration** - Local LLM inference
-- **RAG Pipeline** - Retrieval-augmented generation for malware context
-- **Qdrant Vector DB** - Semantic similarity search
-
----
-
-## Quick Start
-
-### Prerequisites
-- Docker & Docker Compose
-- Ubuntu 22.04+ / Debian 12+
-- Minimum 32GB RAM, 500GB storage
-- GPU recommended for LLM inference
-
-### Installation
-
-1. Clone the main repository:
-```bash
-git clone https://github.com/icepaule/IcePorge.git
-cd IcePorge
-```
-
-2. Clone component repositories:
-```bash
-./scripts/clone-all.sh
-```
-
-3. Configure environment files:
-```bash
-# Copy example configs
-cp component/.env.example component/.env
-# Edit with your API keys and settings
-```
-
-4. Start the stack:
-```bash
-docker compose up -d
-```
-
-See individual component READMEs for detailed setup instructions.
+- **Ollama Integration** - Local LLM inference (privacy-focused)
+- **RAG Pipeline** - Context-aware malware analysis
+- **Vector Search** - Semantic similarity with Qdrant
 
 ---
 
 ## Configuration
 
-All sensitive configuration (API keys, passwords, credentials) is stored in `.env` files which are **never committed** to the repository. Each component includes a `.env.example` template.
+All sensitive data (API keys, passwords) is stored in `.env` files which are **never committed**.
 
 ### Required API Keys
 
-| Service | Registration URL | Used By |
-|---------|------------------|---------|
+| Service | Registration | Used By |
+|---------|--------------|---------|
 | abuse.ch | https://auth.abuse.ch/ | MWDB-Feeder, CAPE-Feed |
 | Hybrid Analysis | https://www.hybrid-analysis.com/signup | MWDB-Feeder |
-| MISP | Your MISP instance | CAPE-Feed |
-| Ransomware.live | https://www.ransomware.live/ | CAPE-Feed |
+| MISP | Your instance | CAPE-Feed |
 
 ---
 
-## Management
+## Automatic Sync
 
-### Cockpit Web UI
-Access the management interface at `https://your-server:9090/`
+The `sync-to-github.sh` script automatically synchronizes local changes:
 
-- **CAPE Sandbox** - Service status, VM management, logs
-- **MWDB Stack** - Container status, Karton pipeline, feed sources
-
-### Sync Script
-Automatic synchronization to GitHub:
 ```bash
-# Manual sync
-/opt/iceporge/sync-to-github.sh
+# Manual sync with dry-run
+/opt/iceporge/sync-to-github.sh --dry-run --verbose
 
-# Dry run (preview changes)
-/opt/iceporge/sync-to-github.sh --dry-run
+# Sync with screenshot capture
+/opt/iceporge/sync-to-github.sh --screenshots
 
 # Add to crontab (daily at 2:00 AM)
 0 2 * * * /opt/iceporge/sync-to-github.sh >> /var/log/iceporge-sync.log 2>&1
 ```
 
+Features:
+- **Sensitive data detection** - Blocks commits with passwords/keys
+- **Screenshot capture** - Documents web interfaces
+- **Multi-server support** - Works on capev2 and ki01
+
 ---
 
-## Security Considerations
+## Management UI
 
-- All API keys and credentials are stored in `.env` files (excluded from git)
-- Network isolation recommended between analysis VMs and production
-- TLS encryption for all external communications
-- Regular updates of signature databases and YARA rules
+Access via Cockpit at `https://your-server:9090/`:
+- **CAPE Sandbox** - Service status, VM management
+- **MWDB Stack** - Container status, Karton pipeline
 
 ---
 
 ## License
 
-MIT License with Attribution - see [LICENSE](LICENSE)
-
-Copyright (c) 2024-2026 IcePorge Project
+MIT License with Attribution
 
 **Author:** Michael Pauli
 - GitHub: [@icepaule](https://github.com/icepaule)
 - Email: info@mpauli.de
 
+When using this software, please maintain attribution to the original author.
+
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read the contributing guidelines in each component repository.
+Contributions welcome! Please:
+1. Fork the relevant component repository
+2. Create a feature branch
+3. Submit a pull request
 
 ## Support
 
-- Open an issue in the relevant component repository
+- Open an issue in the relevant repository
 - Email: info@mpauli.de
