@@ -1,0 +1,7 @@
+# IcePorge main repo .gitignore
+.env
+*.log
+*.lock
+*.pid
+__pycache__/
+.cache/
