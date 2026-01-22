@@ -1,7 +1,80 @@
-# IcePorge main repo .gitignore
+# =============================================================================
+# IcePorge .gitignore - Security-focused exclusions
+# =============================================================================
+
+# Environment and secrets - CRITICAL
 .env
-*.log
+.env.local
+.env.*.local
+secrets/
+credentials/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Config files with secrets (use .example)
+config.yaml
+config.json
+settings.yaml
+settings.json
+
+# API keys and tokens
+**/api_key*
+**/apikey*
+**/token*
+**/*secret*
+
+# State and runtime
+*.db
+*.sqlite*
+state.db
 *.lock
 *.pid
-__pycache__/
+
+# Logs and reports
+logs/
+*.log
+*.jsonl
+reports/
+
+# Work directories
+work/
+tmp/
+temp/
+cache/
 .cache/
+projects/
+results/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+
+# Backups
+*.bak
+*.backup
+*.old
+*_bak_*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large data
+*.zip
+*.tar.gz
+*.7z
+chroma_db/
+qdrant_storage/
