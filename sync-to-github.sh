@@ -72,6 +72,13 @@ SENSITIVE_PATTERNS=(
     '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.(de|com|net|org)'
 )
 
+# Domains to KEEP (not anonymize) - owner's infrastructure
+ALLOWED_DOMAINS=(
+    'mpauli.de'
+    'paulis.net'
+    'thesoc.de'
+)
+
 # Files that should NEVER be committed
 FORBIDDEN_FILES=(
     '.env'
@@ -207,6 +214,76 @@ check_sensitive_data() {
 
     rm -f "$issues_file"
     log_verbose "No sensitive data found"
+    return 0
+}
+
+# Anonymize sensitive data in sample/documentation files
+# - Masks domains (except allowed ones: mpauli.de, paulis.net, thesoc.de)
+# - Masks first octet of IP addresses (xxx.x.x.x -> XXX.x.x.x)
+anonymize_sample_files() {
+    local repo_path="$1"
+    local anonymized_count=0
+
+    log_verbose "Checking for files to anonymize in: $repo_path"
+    cd "$repo_path"
+
+    # Build allowed domains regex pattern (for exclusion)
+    local allowed_pattern=""
+    for domain in "${ALLOWED_DOMAINS[@]}"; do
+        [ -n "$allowed_pattern" ] && allowed_pattern+="|"
+        allowed_pattern+="${domain//./\\.}"
+    done
+
+    # Find sample/documentation files that might need anonymization
+    # Focus on HTML reports, sample configs, and documentation with examples
+    for file in $(find . -type f \( -name "*.html" -o -name "*sample*" -o -name "*example*" -o -name "*demo*" \) \
+                  -path "*/docs/*" -o -path "*/samples/*" -o -path "*/examples/*" 2>/dev/null | grep -v '.git'); do
+        [ -f "$file" ] || continue
+
+        local temp_file=$(mktemp)
+        local modified=false
+
+        # Read file and apply anonymization
+        while IFS= read -r line || [ -n "$line" ]; do
+            local new_line="$line"
+
+            # Anonymize domains (except allowed ones)
+            # Match common domain patterns but exclude allowed domains
+            if echo "$new_line" | grep -qE '[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}' 2>/dev/null; then
+                # Skip if line contains only allowed domains
+                if ! echo "$new_line" | grep -qE "($allowed_pattern)" 2>/dev/null; then
+                    # Replace domain-like patterns with anonymized version
+                    # This is a simplified approach - replace TLD domains
+                    new_line=$(echo "$new_line" | sed -E "s/([a-zA-Z0-9][-a-zA-Z0-9]*)\.(com|de|net|org|io|co)([^a-zA-Z])/\1.example\3/g")
+                    [ "$new_line" != "$line" ] && modified=true
+                fi
+            fi
+
+            # Anonymize IP addresses - mask first octet (e.g., 18.198.173.134 -> XXX.198.173.134)
+            # But keep private IPs and localhost as-is
+            if echo "$new_line" | grep -qE '\b[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b' 2>/dev/null; then
+                # Replace public IP first octets with XXX (skip 10.x, 192.168.x, 172.16-31.x, 127.x)
+                new_line=$(echo "$new_line" | sed -E 's/\b([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\b/XXX.\2.\3.\4/g')
+                # Restore private/local IPs that were incorrectly masked
+                new_line=$(echo "$new_line" | sed -E 's/XXX\.(0\.0\.)/127.\1/g')       # localhost
+                new_line=$(echo "$new_line" | sed -E 's/XXX\.([0-9]+\.[0-9]+\.[0-9]+)/10.\1/g' | grep -v 'XXX' || echo "$new_line")
+                [ "$new_line" != "$line" ] && modified=true
+            fi
+
+            echo "$new_line" >> "$temp_file"
+        done < "$file"
+
+        # Only update file if modifications were made
+        if $modified; then
+            mv "$temp_file" "$file"
+            anonymized_count=$((anonymized_count + 1))
+            log_verbose "Anonymized: $file"
+        else
+            rm -f "$temp_file"
+        fi
+    done
+
+    [ $anonymized_count -gt 0 ] && log "INFO" "Anonymized $anonymized_count sample/doc files"
     return 0
 }
 
@@ -469,6 +546,9 @@ sync_repo() {
 
     # Copy LICENSE if missing
     [ ! -f "LICENSE" ] && [ -f "/opt/iceporge/LICENSE" ] && cp /opt/iceporge/LICENSE .
+
+    # Anonymize sample/documentation files (GDPR compliance)
+    anonymize_sample_files "$repo_path"
 
     # Stage changes
     git add -A
