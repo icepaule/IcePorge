@@ -183,8 +183,8 @@ check_sensitive_data() {
 
         for pattern in "${SENSITIVE_PATTERNS[@]}"; do
             if grep -qEi "$pattern" "$file" 2>/dev/null; then
-                # Exclude .example files, markdown, and shell scripts (contain detection patterns)
-                if [[ ! "$file" =~ \.example$ ]] && [[ ! "$file" =~ \.md$ ]] && [[ ! "$file" =~ \.sh$ ]]; then
+                # Exclude .example files, markdown, shell scripts, and LICENSE (contains author email)
+                if [[ ! "$file" =~ \.example$ ]] && [[ ! "$file" =~ \.md$ ]] && [[ ! "$file" =~ \.sh$ ]] && [[ ! "$file" =~ LICENSE ]]; then
                     local match=$(grep -oEi "$pattern" "$file" 2>/dev/null | head -1)
                     # Redact the actual value for logging
                     local redacted=$(echo "$match" | sed 's/\(.\{10\}\).*/\1***REDACTED***/')
@@ -376,6 +376,7 @@ credentials/
 *.pfx
 
 # Config files with secrets (use .example)
+config/
 config.yaml
 config.json
 settings.yaml

@@ -166,6 +166,25 @@ Access via Cockpit at `https://your-server:9090/`:
 
 ---
 
+## Screenshots
+
+### MWDB Web Interface
+![MWDB Web Interface](docs/screenshots/MWDB-WebUI_20260122.png)
+
+*Central malware sample repository with tagging, relationships, and Karton integration.*
+
+### MWDB Stack Manager (Cockpit)
+![MWDB Stack Manager](docs/screenshots/MWDB-Manager_20260122.png)
+
+*Manage MWDB services, Karton pipeline, and container health from Cockpit.*
+
+### CAPE Sandbox Manager (Cockpit)
+![CAPE Sandbox Manager](docs/screenshots/CAPE-Manager_20260122.png)
+
+*Monitor CAPE services, VMs, and external service connectivity.*
+
+---
+
 ## License
 
 MIT License with Attribution
