@@ -1,0 +1,26 @@
+{
+    "timestamp": "2026-01-23 10:35:01",
+    "hostname": "sandbox-server",
+    "feeder": {
+        "total_processed": 3719,
+        "today_uploaded": 171,
+        "urlhaus": 397,
+        "hybrid_analysis": 331
+    },
+    "cape": {
+        "total_tasks": 681,
+        "pending": 143,
+        "running": 0,
+        "completed_24h": 31,
+        "failed": 507
+    },
+    "system": {
+        "disk_usage": "100%",
+        "disk_total": "590G",
+        "disk_used": "560G",
+        "cape_service": "active",
+        "cape_web": "active",
+        "mwdb_service": "running",
+        "vms_running": 0
+    }
+}
