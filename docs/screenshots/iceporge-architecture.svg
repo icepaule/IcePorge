@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" style="background-color: #1a1a2e;">
+  <defs>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0983D3;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06527a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#28a745;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e7e34;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6f42c1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#4a235a;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fd7e14;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c55a00;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="450" y="35" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="20" font-weight="bold">IcePorge - Architektur-Übersicht</text>
+
+  <!-- THREAT INTELLIGENCE FEEDS Section -->
+  <rect x="50" y="55" width="800" height="70" rx="8" fill="#2d2d44" stroke="#0983D3" stroke-width="2" filter="url(#shadow)"/>
+  <text x="450" y="80" text-anchor="middle" fill="#0983D3" font-family="Arial, sans-serif" font-size="14" font-weight="bold">THREAT INTELLIGENCE FEEDS</text>
+
+  <!-- Feed boxes -->
+  <rect x="70" y="90" width="100" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="120" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">URLhaus</text>
+
+  <rect x="185" y="90" width="100" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="235" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">ThreatFox</text>
+
+  <rect x="300" y="90" width="120" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="360" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">MalwareBazaar</text>
+
+  <rect x="435" y="90" width="120" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="495" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">Hybrid Analysis</text>
+
+  <rect x="570" y="90" width="130" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="635" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">Ransomware.live</text>
+
+  <rect x="715" y="90" width="120" height="25" rx="4" fill="url(#orangeGrad)"/>
+  <text x="775" y="107" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11">Feodo Tracker</text>
+
+  <!-- Arrows down -->
+  <path d="M 250 125 L 250 150 L 250 145" stroke="#0983D3" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 650 125 L 650 150 L 650 145" stroke="#0983D3" stroke-width="2" fill="none"/>
+  <polygon points="250,155 245,145 255,145" fill="#0983D3"/>
+  <polygon points="650,155 645,145 655,145" fill="#0983D3"/>
+
+  <!-- FEEDER Section -->
+  <rect x="130" y="160" width="180" height="60" rx="8" fill="url(#blueGrad)" filter="url(#shadow)"/>
+  <text x="220" y="185" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">MWDB-Feeder</text>
+  <text x="220" y="205" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="10">Multi-Source Aggregator</text>
+
+  <rect x="590" y="160" width="180" height="60" rx="8" fill="url(#blueGrad)" filter="url(#shadow)"/>
+  <text x="680" y="185" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">CAPE-Feed</text>
+  <text x="680" y="205" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="10">MalwareBazaar Pipeline</text>
+
+  <!-- Arrows to main platform -->
+  <path d="M 220 220 L 220 250" stroke="#0983D3" stroke-width="2" fill="none"/>
+  <polygon points="220,255 215,245 225,245" fill="#0983D3"/>
+  <path d="M 680 220 L 680 250" stroke="#0983D3" stroke-width="2" fill="none"/>
+  <polygon points="680,255 675,245 685,245" fill="#0983D3"/>
+
+  <!-- MAIN ANALYSIS PLATFORM -->
+  <rect x="50" y="260" width="800" height="230" rx="10" fill="#2d2d44" stroke="#28a745" stroke-width="2" filter="url(#shadow)"/>
+  <text x="450" y="285" text-anchor="middle" fill="#28a745" font-family="Arial, sans-serif" font-size="14" font-weight="bold">ANALYSE-PLATTFORM (Sandbox Server)</text>
+
+  <!-- Inner components -->
+  <rect x="70" y="300" width="140" height="70" rx="6" fill="url(#greenGrad)" filter="url(#shadow)"/>
+  <text x="140" y="330" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">MWDB-Core</text>
+  <text x="140" y="350" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Malware Database</text>
+  <text x="140" y="362" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">PostgreSQL + MinIO</text>
+
+  <rect x="230" y="300" width="140" height="70" rx="6" fill="url(#greenGrad)" filter="url(#shadow)"/>
+  <text x="300" y="330" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Karton</text>
+  <text x="300" y="350" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Task Orchestrator</text>
+  <text x="300" y="362" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Redis Queue</text>
+
+  <rect x="390" y="300" width="140" height="70" rx="6" fill="url(#greenGrad)" filter="url(#shadow)"/>
+  <text x="460" y="330" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">CAPE Sandbox</text>
+  <text x="460" y="350" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Dynamic Analysis</text>
+  <text x="460" y="362" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Windows VMs</text>
+
+  <rect x="550" y="300" width="140" height="70" rx="6" fill="url(#greenGrad)" filter="url(#shadow)"/>
+  <text x="620" y="325" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11" font-weight="bold">karton-cape-</text>
+  <text x="620" y="340" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="11" font-weight="bold">submitter</text>
+  <text x="620" y="358" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Auto Pipeline</text>
+
+  <rect x="710" y="300" width="120" height="70" rx="6" fill="url(#greenGrad)" filter="url(#shadow)"/>
+  <text x="770" y="330" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">MISP</text>
+  <text x="770" y="350" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Threat Intel</text>
+  <text x="770" y="362" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">IOC Sharing</text>
+
+  <!-- Second row -->
+  <rect x="70" y="390" width="180" height="70" rx="6" fill="url(#blueGrad)" filter="url(#shadow)"/>
+  <text x="160" y="420" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">CAPE-Mailer</text>
+  <text x="160" y="440" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Phishing Analysis</text>
+  <text x="160" y="452" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">SPF/DKIM/DMARC</text>
+
+  <rect x="270" y="390" width="180" height="70" rx="6" fill="url(#blueGrad)" filter="url(#shadow)"/>
+  <text x="360" y="420" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Cockpit Manager</text>
+  <text x="360" y="440" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Web Dashboard</text>
+  <text x="360" y="452" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Service Control</text>
+
+  <!-- Connection arrows inside -->
+  <line x1="210" y1="335" x2="230" y2="335" stroke="#fff" stroke-width="1.5"/>
+  <line x1="370" y1="335" x2="390" y2="335" stroke="#fff" stroke-width="1.5"/>
+  <line x1="530" y1="335" x2="550" y2="335" stroke="#fff" stroke-width="1.5"/>
+  <line x1="690" y1="335" x2="710" y2="335" stroke="#fff" stroke-width="1.5"/>
+
+  <!-- Arrow to AI Section -->
+  <path d="M 450 490 L 450 520" stroke="#6f42c1" stroke-width="2" fill="none"/>
+  <polygon points="450,525 445,515 455,515" fill="#6f42c1"/>
+
+  <!-- AI-ENHANCED ANALYSIS Section -->
+  <rect x="50" y="530" width="800" height="140" rx="10" fill="#2d2d44" stroke="#6f42c1" stroke-width="2" filter="url(#shadow)"/>
+  <text x="450" y="555" text-anchor="middle" fill="#6f42c1" font-family="Arial, sans-serif" font-size="14" font-weight="bold">KI-GESTÜTZTE ANALYSE (GPU Server)</text>
+
+  <rect x="100" y="575" width="200" height="75" rx="6" fill="url(#purpleGrad)" filter="url(#shadow)"/>
+  <text x="200" y="600" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Ghidra-Orchestrator</text>
+  <text x="200" y="620" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Headless Decompilation</text>
+  <text x="200" y="635" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">LLM Code Analysis</text>
+
+  <rect x="350" y="575" width="200" height="75" rx="6" fill="url(#purpleGrad)" filter="url(#shadow)"/>
+  <text x="450" y="600" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Malware-RAG</text>
+  <text x="450" y="620" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Vector DB (Qdrant)</text>
+  <text x="450" y="635" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">FOR610 Knowledge Base</text>
+
+  <rect x="600" y="575" width="200" height="75" rx="6" fill="url(#purpleGrad)" filter="url(#shadow)"/>
+  <text x="700" y="600" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Ollama (GPU)</text>
+  <text x="700" y="620" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Llama / Mistral / Qwen</text>
+  <text x="700" y="635" text-anchor="middle" fill="#ddd" font-family="Arial, sans-serif" font-size="9">Local LLM Inference</text>
+
+  <!-- Connection lines in AI section -->
+  <line x1="300" y1="612" x2="350" y2="612" stroke="#fff" stroke-width="1.5"/>
+  <line x1="550" y1="612" x2="600" y2="612" stroke="#fff" stroke-width="1.5"/>
+</svg>

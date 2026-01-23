@@ -1,0 +1,33 @@
+# =============================================================================
+# IcePorge Pushover Notification Configuration
+# =============================================================================
+# Get your credentials at: https://pushover.net/
+#
+# 1. Create account at pushover.net
+# 2. Create an Application (Settings -> Apps -> Create New Application)
+# 3. Copy the API Token (app_token) and your User Key (user_key)
+# 4. Copy this file to pushover.yaml and fill in your credentials
+# =============================================================================
+
+pushover:
+  enabled: true
+  app_token: "YOUR_PUSHOVER_APP_TOKEN"    # Application API Token
+  user_key: "YOUR_PUSHOVER_USER_KEY"      # Your User Key
+
+  # Priority levels: -2=lowest, -1=low, 0=normal, 1=high, 2=emergency
+  priority:
+    error: 1      # High priority for errors
+    warning: 0    # Normal priority for warnings
+    info: -1      # Low priority for info
+
+  # Sound options: pushover, bike, bugle, cashregister, classical, cosmic,
+  # falling, gamelan, incoming, intermission, magic, mechanical, pianobar,
+  # siren, spacealarm, tugboat, alien, climb, persistent, echo, updown, none
+  sound:
+    error: "siren"
+    warning: "pushover"
+    info: "none"
+
+  # Rate limiting (avoid spam)
+  max_messages_per_hour: 10
+  cooldown_seconds: 60

@@ -36,49 +36,53 @@ cd IcePorge
 
 ## Architecture Overview
 
+```mermaid
+flowchart TB
+    subgraph FEEDS["THREAT INTELLIGENCE FEEDS"]
+        F1[URLhaus]
+        F2[ThreatFox]
+        F3[MalwareBazaar]
+        F4[Hybrid Analysis]
+        F5[Ransomware.live]
+    end
+
+    subgraph AGGREGATORS["FEED AGGREGATORS"]
+        AGG1[MWDB-Feeder<br/>Multi-Source]
+        AGG2[CAPE-Feed<br/>MalwareBazaar]
+    end
+
+    subgraph PLATFORM["ANALYSIS PLATFORM - Sandbox Server"]
+        subgraph CORE["MWDB-Stack + CAPE Sandbox"]
+            MWDB[MWDB-Core<br/>PostgreSQL + MinIO]
+            KARTON[Karton<br/>Orchestrator]
+            CAPE[CAPE Sandbox<br/>Dynamic Analysis]
+            SUBMITTER[karton-cape-submitter<br/>Auto Pipeline]
+        end
+        MAILER[CAPE-Mailer<br/>Phishing Analysis]
+        MISP[MISP<br/>Threat Intel]
+    end
+
+    subgraph AI["AI-ENHANCED ANALYSIS - GPU Server"]
+        GHIDRA[Ghidra-Orchestrator<br/>Headless Decompilation]
+        RAG[Malware-RAG<br/>Vector DB + FOR610]
+        OLLAMA[Ollama<br/>Llama/Mistral LLMs]
+    end
+
+    FEEDS --> AGGREGATORS
+    AGG1 --> MWDB
+    AGG2 --> CAPE
+    MWDB --> KARTON
+    KARTON --> CAPE
+    KARTON --> SUBMITTER
+    SUBMITTER --> CAPE
+    CAPE --> MISP
+    CAPE --> MAILER
+    PLATFORM --> AI
+    GHIDRA --> RAG
+    RAG --> OLLAMA
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           THREAT INTELLIGENCE FEEDS                          │
-│  URLhaus ── ThreatFox ── MalwareBazaar ── Hybrid Analysis ── Ransomware.live │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    ▼                                   ▼
-          ┌─────────────────┐                 ┌─────────────────┐
-          │  MWDB-Feeder    │                 │   CAPE-Feed     │
-          │  Multi-Source   │                 │  MalwareBazaar  │
-          │  Aggregator     │                 │    Pipeline     │
-          └────────┬────────┘                 └────────┬────────┘
-                   │                                   │
-                   ▼                                   ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              ANALYSIS PLATFORM                                │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │                    MWDB-Stack + CAPE Sandbox                           │  │
-│  │  ┌──────────┐ ┌─────────────┐ ┌──────────┐ ┌─────────────────────────┐ │  │
-│  │  │  MWDB    │ │   Karton    │ │   CAPE   │ │ karton-cape-submitter  │ │  │
-│  │  │  Core    │ │ Orchestrator│ │ Analysis │ │  (Automated Pipeline)  │ │  │
-│  │  └──────────┘ └─────────────┘ └──────────┘ └─────────────────────────┘ │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           AI-ENHANCED ANALYSIS (ki01)                         │
-│  ┌──────────────────────────────┐    ┌──────────────────────────────────┐   │
-│  │    Ghidra-Orchestrator      │    │       Malware-RAG                │   │
-│  │  • Headless Decompilation   │    │  • Vector Database (Qdrant)     │   │
-│  │  • LLM Code Understanding   │    │  • FOR610 Knowledge Base        │   │
-│  │  • Ollama Integration       │    │  • Context-Aware Analysis       │   │
-│  └──────────────────────────────┘    └──────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                                      ▼
-                       ┌──────────────────────────┐
-                       │          MISP            │
-                       │  Threat Intelligence     │
-                       └──────────────────────────┘
-```
+
+![Architecture Diagram](docs/screenshots/iceporge-architecture.svg)
 
 ---
 
@@ -86,13 +90,13 @@ cd IcePorge
 
 | Repository | Description | Server |
 |------------|-------------|--------|
-| [IcePorge-MWDB-Stack](https://github.com/icepaule/IcePorge-MWDB-Stack) | MWDB-core with Karton orchestration | capev2 |
-| [IcePorge-MWDB-Feeder](https://github.com/icepaule/IcePorge-MWDB-Feeder) | Multi-source malware aggregator | capev2 |
-| [IcePorge-CAPE-Feed](https://github.com/icepaule/IcePorge-CAPE-Feed) | MalwareBazaar → CAPE → MISP pipeline | capev2 |
-| [IcePorge-CAPE-Mailer](https://github.com/icepaule/IcePorge-CAPE-Mailer) | Email-triggered analysis | capev2 |
-| [IcePorge-Cockpit](https://github.com/icepaule/IcePorge-Cockpit) | Web management UI (Cockpit modules) | capev2 |
-| [IcePorge-Ghidra-Orchestrator](https://github.com/icepaule/IcePorge-Ghidra-Orchestrator) | Automated reverse engineering | ki01 |
-| [IcePorge-Malware-RAG](https://github.com/icepaule/IcePorge-Malware-RAG) | LLM-powered RAG analysis | ki01 |
+| [IcePorge-MWDB-Stack](https://github.com/icepaule/IcePorge-MWDB-Stack) | MWDB-core with Karton orchestration | Sandbox |
+| [IcePorge-MWDB-Feeder](https://github.com/icepaule/IcePorge-MWDB-Feeder) | Multi-source malware aggregator | Sandbox |
+| [IcePorge-CAPE-Feed](https://github.com/icepaule/IcePorge-CAPE-Feed) | MalwareBazaar → CAPE → MISP pipeline | Sandbox |
+| [IcePorge-CAPE-Mailer](https://github.com/icepaule/IcePorge-CAPE-Mailer) | Email-triggered analysis | Sandbox |
+| [IcePorge-Cockpit](https://github.com/icepaule/IcePorge-Cockpit) | Web management UI (Cockpit modules) | Sandbox |
+| [IcePorge-Ghidra-Orchestrator](https://github.com/icepaule/IcePorge-Ghidra-Orchestrator) | Automated reverse engineering | GPU |
+| [IcePorge-Malware-RAG](https://github.com/icepaule/IcePorge-Malware-RAG) | LLM-powered RAG analysis | GPU |
 
 ---
 

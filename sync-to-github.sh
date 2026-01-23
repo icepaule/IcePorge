@@ -25,6 +25,7 @@ set -euo pipefail
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$SCRIPT_DIR/config"
 LOG_FILE="/var/log/iceporge-sync.log"
 LOCK_FILE="/var/run/iceporge-sync.lock"
 SCREENSHOT_DIR="/opt/iceporge/screenshots"
@@ -35,6 +36,88 @@ SKIP_CHECK=false
 FORCE_PUSH=false
 CREATE_RELEASE=false
 HOSTNAME=$(hostname)
+ERRORS_OCCURRED=false
+ERROR_MESSAGES=""
+
+# =============================================================================
+# Pushover Notification Configuration
+# =============================================================================
+PUSHOVER_ENABLED=false
+PUSHOVER_TOKEN=""
+PUSHOVER_USER=""
+
+load_pushover_config() {
+    if [ -f "$CONFIG_DIR/pushover.yaml" ]; then
+        PUSHOVER_ENABLED=$(grep -A1 "^pushover:" "$CONFIG_DIR/pushover.yaml" | grep "enabled:" | awk '{print $2}' | tr -d '"' || echo "false")
+        PUSHOVER_TOKEN=$(grep "app_token:" "$CONFIG_DIR/pushover.yaml" | awk '{print $2}' | tr -d '"' || echo "")
+        PUSHOVER_USER=$(grep "user_key:" "$CONFIG_DIR/pushover.yaml" | awk '{print $2}' | tr -d '"' || echo "")
+    fi
+}
+
+send_pushover() {
+    local title="$1"
+    local message="$2"
+    local priority="${3:-0}"
+
+    if [ "$PUSHOVER_ENABLED" != "true" ] || [ -z "$PUSHOVER_TOKEN" ] || [ "$PUSHOVER_TOKEN" = "YOUR_PUSHOVER_APP_TOKEN" ]; then
+        log_verbose "Pushover not configured, skipping notification"
+        return 0
+    fi
+
+    curl -s \
+        --form-string "token=$PUSHOVER_TOKEN" \
+        --form-string "user=$PUSHOVER_USER" \
+        --form-string "title=$title" \
+        --form-string "message=$message" \
+        --form-string "priority=$priority" \
+        --form-string "sound=$([ $priority -ge 1 ] && echo 'siren' || echo 'pushover')" \
+        https://api.pushover.net/1/messages.json > /dev/null 2>&1 || true
+
+    log_verbose "Pushover notification sent: $title"
+}
+
+# =============================================================================
+# Secrets Masking Configuration
+# =============================================================================
+declare -a SECRETS_TO_MASK
+
+load_secrets_config() {
+    if [ -f "$CONFIG_DIR/secrets.yaml" ]; then
+        # Extract secret values from YAML
+        while IFS= read -r line; do
+            if [[ "$line" =~ value:\ *\"(.+)\" ]]; then
+                SECRETS_TO_MASK+=("${BASH_REMATCH[1]}")
+            fi
+        done < <(grep "value:" "$CONFIG_DIR/secrets.yaml")
+        log_verbose "Loaded ${#SECRETS_TO_MASK[@]} secrets to mask"
+    fi
+}
+
+# Mask secrets in a file (creates masked copy, leaves original intact)
+mask_secrets_in_file() {
+    local file="$1"
+    local content=$(cat "$file")
+    local modified=false
+
+    for secret in "${SECRETS_TO_MASK[@]}"; do
+        if [ -n "$secret" ] && [ ${#secret} -gt 10 ]; then
+            if [[ "$content" == *"$secret"* ]]; then
+                # Get secret name from config
+                local secret_name=$(grep -B1 "value: \"$secret\"" "$CONFIG_DIR/secrets.yaml" | grep "name:" | awk -F'"' '{print $2}')
+                secret_name="${secret_name:-REDACTED}"
+                content="${content//$secret/<MASKED_${secret_name}>}"
+                modified=true
+                log_verbose "Masked secret $secret_name in $file"
+            fi
+        fi
+    done
+
+    if $modified; then
+        echo "$content" > "$file"
+        return 0
+    fi
+    return 1
+}
 
 # Sensitive data patterns to detect
 SENSITIVE_PATTERNS=(
@@ -520,6 +603,38 @@ qdrant_storage/
 GITIGNORE
 }
 
+# Mask secrets in staged files before commit
+mask_staged_secrets() {
+    local repo_path="$1"
+    local masked_count=0
+
+    if [ ${#SECRETS_TO_MASK[@]} -eq 0 ]; then
+        log_verbose "No secrets configured for masking"
+        return 0
+    fi
+
+    cd "$repo_path"
+
+    # Get list of staged files (only text files that might contain secrets)
+    for file in $(git diff --cached --name-only 2>/dev/null); do
+        [ -f "$file" ] || continue
+
+        # Only process text files that might contain secrets
+        if [[ "$file" =~ \.(md|txt|yaml|yml|json|html|rst|cfg|ini|conf)$ ]]; then
+            if mask_secrets_in_file "$file"; then
+                git add "$file"
+                masked_count=$((masked_count + 1))
+            fi
+        fi
+    done
+
+    if [ $masked_count -gt 0 ]; then
+        log "INFO" "Masked secrets in $masked_count files"
+    fi
+
+    return 0
+}
+
 # Sync single repository
 sync_repo() {
     local repo_path="$1"
@@ -559,11 +674,17 @@ sync_repo() {
         return 0
     fi
 
+    # IMPORTANT: Mask secrets in staged files BEFORE sensitive data check
+    mask_staged_secrets "$repo_path"
+
     # Sensitive data check
     if ! $SKIP_CHECK; then
         if ! check_sensitive_data "$repo_path"; then
             if ! $FORCE_PUSH; then
-                log "ERROR" "Aborting sync due to sensitive data. Use --force to override (NOT RECOMMENDED)"
+                local error_msg="Aborting sync of $github_repo due to sensitive data"
+                log "ERROR" "$error_msg"
+                ERROR_MESSAGES="${ERROR_MESSAGES}\n${error_msg}"
+                ERRORS_OCCURRED=true
                 git reset HEAD
                 return 1
             fi
@@ -585,22 +706,26 @@ sync_repo() {
     local commit_msg="Auto-sync from $HOSTNAME - $(date '+%Y-%m-%d %H:%M')
 
 Changes synchronized automatically by IcePorge sync script.
-No sensitive data detected in this commit."
+Secrets masked, sensitive data check passed."
 
     git commit -m "$commit_msg"
 
-    if git push -u origin main 2>&1; then
+    local push_output
+    if push_output=$(git push -u origin main 2>&1); then
         log "INFO" "Successfully pushed to $github_repo"
         # Create release if enabled
         create_release "$repo_path" "$github_repo"
     else
         log "WARN" "Push failed, trying force push (initial sync)"
-        if git push -u origin main --force 2>&1; then
+        if push_output=$(git push -u origin main --force 2>&1); then
             log "INFO" "Force push succeeded"
             # Create release if enabled
             create_release "$repo_path" "$github_repo"
         else
-            log "ERROR" "Force push also failed"
+            local error_msg="Push failed for $github_repo: $push_output"
+            log "ERROR" "$error_msg"
+            ERROR_MESSAGES="${ERROR_MESSAGES}\n${error_msg}"
+            ERRORS_OCCURRED=true
             return 1
         fi
     fi
@@ -609,6 +734,10 @@ No sensitive data detected in this commit."
 # Main execution
 main() {
     log "INFO" "========== IcePorge Sync Started on $HOSTNAME =========="
+
+    # Load configurations
+    load_pushover_config
+    load_secrets_config
 
     acquire_lock
 
@@ -629,7 +758,14 @@ main() {
 
     log "INFO" "========== Sync Complete: $success success, $failed failed =========="
 
-    if [ $failed -gt 0 ]; then
+    # Send Pushover notification on errors
+    if [ $failed -gt 0 ] || $ERRORS_OCCURRED; then
+        local notification_msg="Sync completed with $failed failures on $HOSTNAME"
+        if [ -n "$ERROR_MESSAGES" ]; then
+            notification_msg="${notification_msg}$(echo -e "$ERROR_MESSAGES" | head -c 500)"
+        fi
+        send_pushover "IcePorge Sync Error" "$notification_msg" 1
+        log "ERROR" "Pushover notification sent for sync errors"
         exit 1
     fi
 }

@@ -19,12 +19,17 @@ config.yaml
 config.json
 settings.yaml
 settings.json
+config/pushover.yaml
+config/secrets.yaml
+config/*.yaml
+!config/*.example.yaml
 
 # API keys and tokens
 **/api_key*
 **/apikey*
 **/token*
 **/*secret*
+!**/*.example.yaml
 
 # State and runtime
 *.db
@@ -78,3 +83,5 @@ Thumbs.db
 *.7z
 chroma_db/
 qdrant_storage/
+node_modules/
+package-lock.json
