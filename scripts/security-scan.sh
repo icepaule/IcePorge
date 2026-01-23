@@ -12,9 +12,14 @@
 #   --local          Scan local repositories only
 #   --github         Scan GitHub repositories (requires gh auth)
 #   --all            Scan both local and GitHub
+#   --target TARGET  Scan a specific target (path or owner/repo)
+#   --type TYPE      Target type: git, github_repo, github_org, filesystem
+#   --from-config    Read targets from trufflehog-targets.yaml
 #   --json           Output results in JSON format
 #   --report FILE    Write report to file
 #   --notify         Send Pushover notification on findings
+#   --only-verified  Only report verified secrets (default for GitHub)
+#   --test-pushover  Send a test Pushover notification and exit
 #   --verbose        Show detailed output
 # =============================================================================
 
@@ -27,18 +32,31 @@ LOG_FILE="/var/log/iceporge-security.log"
 REPORT_DIR="$ICEPORGE_DIR/status"
 HOSTNAME=$(hostname)
 
+# Ensure log file is writable, fallback to local if not
+if [ ! -w "$LOG_FILE" ] 2>/dev/null; then
+    touch "$LOG_FILE" 2>/dev/null || LOG_FILE="$ICEPORGE_DIR/status/security-scan.log"
+fi
+touch "$LOG_FILE" 2>/dev/null || LOG_FILE="/tmp/iceporge-security.log"
+
 # Defaults
 SCAN_LOCAL=false
 SCAN_GITHUB=false
+SCAN_TARGET=""
+TARGET_TYPE=""
+FROM_CONFIG=false
 JSON_OUTPUT=false
 REPORT_FILE=""
 NOTIFY=false
+ONLY_VERIFIED=false
+TEST_PUSHOVER=false
 VERBOSE=false
+TARGETS_CONFIG="$CONFIG_DIR/trufflehog-targets.yaml"
 
 # Colors
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 # Parse arguments
@@ -47,9 +65,14 @@ while [[ $# -gt 0 ]]; do
         --local) SCAN_LOCAL=true; shift ;;
         --github) SCAN_GITHUB=true; shift ;;
         --all) SCAN_LOCAL=true; SCAN_GITHUB=true; shift ;;
+        --target) SCAN_TARGET="$2"; shift 2 ;;
+        --type) TARGET_TYPE="$2"; shift 2 ;;
+        --from-config) FROM_CONFIG=true; shift ;;
         --json) JSON_OUTPUT=true; shift ;;
         --report) REPORT_FILE="$2"; shift 2 ;;
         --notify) NOTIFY=true; shift ;;
+        --only-verified) ONLY_VERIFIED=true; shift ;;
+        --test-pushover) TEST_PUSHOVER=true; shift ;;
         --verbose) VERBOSE=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
@@ -109,6 +132,158 @@ load_secrets() {
         # Extract secret values from YAML
         SECRETS=$(grep -A2 "^  - name:" "$CONFIG_DIR/secrets.yaml" | grep "value:" | awk -F'"' '{print $2}')
     fi
+}
+
+# Test Pushover notification
+test_pushover() {
+    load_pushover_config
+    if [ "$PUSHOVER_ENABLED" != "true" ] || [ -z "$PUSHOVER_TOKEN" ]; then
+        echo -e "${RED}Pushover not configured${NC}"
+        exit 1
+    fi
+    send_pushover "IcePorge Security Scanner" "Test-Nachricht vom Security Scanner auf $HOSTNAME" 0
+    echo -e "${GREEN}Test notification sent${NC}"
+    exit 0
+}
+
+# Scan a single target
+scan_single_target() {
+    local target="$1"
+    local type="$2"
+    local only_verified="${3:-false}"
+    local findings=0
+
+    log "INFO" "Scanning target: $target (type: $type)"
+
+    local cmd="trufflehog"
+    local args=""
+
+    case "$type" in
+        github_repo)
+            cmd="$cmd github --repo=$target"
+            ;;
+        github_org)
+            cmd="$cmd github --org=$target"
+            ;;
+        git)
+            if [[ "$target" != file://* ]]; then
+                target="file://$target"
+            fi
+            cmd="$cmd git $target"
+            ;;
+        filesystem)
+            cmd="$cmd filesystem $target"
+            ;;
+        *)
+            # Auto-detect type
+            if [[ "$target" == */* ]] && [[ "$target" != /* ]]; then
+                cmd="$cmd github --repo=$target"
+            elif [ -d "$target/.git" ]; then
+                cmd="$cmd git file://$target"
+            elif [ -d "$target" ]; then
+                cmd="$cmd filesystem $target"
+            else
+                log "ERROR" "Cannot determine target type for: $target"
+                return 1
+            fi
+            ;;
+    esac
+
+    [ "$only_verified" = "true" ] && cmd="$cmd --only-verified"
+    $JSON_OUTPUT && cmd="$cmd --json"
+
+    log_verbose "Running: $cmd"
+
+    local output
+    output=$($cmd 2>&1) || true
+
+    if [ -n "$output" ] && [ "$output" != "" ]; then
+        local count=0
+        if $JSON_OUTPUT; then
+            count=$(echo "$output" | jq -s 'length' 2>/dev/null || echo "0")
+        else
+            count=$(echo "$output" | grep -c "Detector" 2>/dev/null || echo "0")
+        fi
+        # Ensure count is a valid number
+        count=${count//[^0-9]/}
+        count=${count:-0}
+
+        if [ "$count" -gt 0 ]; then
+            echo -e "${RED}[!] Found $count secrets in $target${NC}"
+            echo "$output"
+            findings=$count
+        else
+            echo -e "${GREEN}[+] No secrets found in $target${NC}"
+        fi
+    else
+        echo -e "${GREEN}[+] No secrets found in $target${NC}"
+    fi
+
+    return $findings
+}
+
+# Scan targets from config file
+scan_from_config() {
+    local total_findings=0
+
+    if [ ! -f "$TARGETS_CONFIG" ]; then
+        log "ERROR" "Targets config not found: $TARGETS_CONFIG"
+        return 1
+    fi
+
+    log "INFO" "Loading targets from: $TARGETS_CONFIG"
+
+    # Parse YAML and scan enabled targets
+    local current_section=""
+    local current_name=""
+    local current_target=""
+    local current_type=""
+    local current_enabled=""
+    local current_verified=""
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Detect section
+        if [[ "$line" =~ ^github_targets: ]]; then
+            current_section="github"
+        elif [[ "$line" =~ ^local_targets: ]]; then
+            current_section="local"
+        elif [[ "$line" =~ ^filesystem_targets: ]]; then
+            current_section="filesystem"
+        elif [[ "$line" =~ ^external_targets: ]]; then
+            current_section="external"
+        fi
+
+        # Parse target entries
+        if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*name:[[:space:]]*\"?([^\"]+)\"? ]]; then
+            # Save previous target if complete
+            if [ -n "$current_target" ] && [ "$current_enabled" = "true" ]; then
+                echo -e "\n${CYAN}=== Scanning: $current_name ===${NC}"
+                scan_single_target "$current_target" "$current_type" "$current_verified" || total_findings=$((total_findings + $?))
+            fi
+            # Start new target
+            current_name="${BASH_REMATCH[1]}"
+            current_target=""
+            current_type=""
+            current_enabled=""
+            current_verified=""
+        elif [[ "$line" =~ ^[[:space:]]+target:[[:space:]]*\"?([^\"]+)\"? ]]; then
+            current_target="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[[:space:]]+type:[[:space:]]*(.+) ]]; then
+            current_type="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[[:space:]]+enabled:[[:space:]]*(.+) ]]; then
+            current_enabled="${BASH_REMATCH[1]}"
+        elif [[ "$line" =~ ^[[:space:]]+only_verified:[[:space:]]*(.+) ]]; then
+            current_verified="${BASH_REMATCH[1]}"
+        fi
+    done < "$TARGETS_CONFIG"
+
+    # Don't forget the last target
+    if [ -n "$current_target" ] && [ "$current_enabled" = "true" ]; then
+        echo -e "\n${CYAN}=== Scanning: $current_name ===${NC}"
+        scan_single_target "$current_target" "$current_type" "$current_verified" || total_findings=$((total_findings + $?))
+    fi
+
+    return $total_findings
 }
 
 # Check if TruffleHog is installed
@@ -280,26 +455,51 @@ main() {
     check_trufflehog
     load_pushover_config
 
+    # Handle test-pushover
+    if $TEST_PUSHOVER; then
+        test_pushover
+    fi
+
     local local_findings=0
     local github_findings=0
+    local config_findings=0
+    local target_findings=0
 
-    # Scan local repositories
-    if $SCAN_LOCAL; then
-        echo -e "\n${YELLOW}=== Scanning Local Repositories ===${NC}\n"
-        scan_all_local || local_findings=$?
+    # Scan specific target
+    if [ -n "$SCAN_TARGET" ]; then
+        echo -e "\n${YELLOW}=== Scanning Specific Target ===${NC}\n"
+        scan_single_target "$SCAN_TARGET" "$TARGET_TYPE" "$ONLY_VERIFIED" || target_findings=$?
+    # Scan from config file
+    elif $FROM_CONFIG; then
+        echo -e "\n${YELLOW}=== Scanning Targets from Config ===${NC}\n"
+        scan_from_config || config_findings=$?
+    else
+        # Scan local repositories
+        if $SCAN_LOCAL; then
+            echo -e "\n${YELLOW}=== Scanning Local Repositories ===${NC}\n"
+            scan_all_local || local_findings=$?
+        fi
+
+        # Scan GitHub
+        if $SCAN_GITHUB; then
+            echo -e "\n${YELLOW}=== Scanning GitHub (icepaule) ===${NC}\n"
+            scan_github || github_findings=$?
+        fi
     fi
 
-    # Scan GitHub
-    if $SCAN_GITHUB; then
-        echo -e "\n${YELLOW}=== Scanning GitHub (icepaule) ===${NC}\n"
-        scan_github || github_findings=$?
-    fi
+    local total_findings=$((local_findings + github_findings + config_findings + target_findings))
 
     # Summary
     echo -e "\n${YELLOW}=== Summary ===${NC}"
-    echo "Local findings:  $local_findings"
-    echo "GitHub findings: $github_findings"
-    echo "Total:           $((local_findings + github_findings))"
+    if [ -n "$SCAN_TARGET" ]; then
+        echo "Target findings: $target_findings"
+    elif $FROM_CONFIG; then
+        echo "Config findings: $config_findings"
+    else
+        echo "Local findings:  $local_findings"
+        echo "GitHub findings: $github_findings"
+    fi
+    echo "Total:           $total_findings"
 
     # Generate report if requested
     if [ -n "$REPORT_FILE" ] || $JSON_OUTPUT; then
@@ -307,14 +507,14 @@ main() {
     fi
 
     # Send notification if findings
-    if $NOTIFY && [ $((local_findings + github_findings)) -gt 0 ]; then
-        send_pushover "IcePorge Security Scan" "Found $((local_findings + github_findings)) potential secrets. Check logs for details." 1
+    if $NOTIFY && [ $total_findings -gt 0 ]; then
+        send_pushover "IcePorge Security Scan" "Found $total_findings potential secrets on $HOSTNAME. Check logs for details." 1
     fi
 
     log "INFO" "========== Security Scan Complete =========="
 
     # Exit with error if findings
-    [ $((local_findings + github_findings)) -eq 0 ]
+    [ $total_findings -eq 0 ]
 }
 
 main "$@"

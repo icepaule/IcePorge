@@ -1,17 +1,17 @@
 {
-    "timestamp": "2026-01-23 10:35:01",
+    "timestamp": "2026-01-23 17:00:01",
     "hostname": "sandbox-server",
     "feeder": {
-        "total_processed": 3719,
+        "total_processed": 4952,
         "today_uploaded": 171,
         "urlhaus": 397,
         "hybrid_analysis": 331
     },
     "cape": {
         "total_tasks": 681,
-        "pending": 143,
+        "pending": 160,
         "running": 0,
-        "completed_24h": 31,
+        "completed_24h": 14,
         "failed": 507
     },
     "system": {
