@@ -22,7 +22,7 @@ MODE="${1:-full}"
 # =============================================================================
 # Allowed domains (will not be flagged)
 # Includes owner domains + RFC 2606 reserved example domains (and subdomains)
-ALLOWED_DOMAINS="mpauli\.de|paulis\.net|thesoc\.de|([a-z0-9.-]+\.)?example\.(com|org|net|de)"
+ALLOWED_DOMAINS="mpauli\.de|paulis\.net|thesoc\.de|([a-z0-9.-]+\.)?example\.(com|org|net|de|example)"
 
 check_sensitive_data() {
     local file="$1"
