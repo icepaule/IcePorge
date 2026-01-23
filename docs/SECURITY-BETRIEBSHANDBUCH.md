@@ -6,7 +6,7 @@
 
 | Attribut | Wert |
 |----------|------|
-| Dokumentenversion | 1.0 |
+| Dokumentenversion | 1.1 |
 | Erstellungsdatum | 2026-01-23 |
 | Letzte Änderung | 2026-01-23 |
 | Klassifizierung | INTERN |
@@ -18,10 +18,14 @@
 
 1. [Übersicht](#1-übersicht)
 2. [TruffleHog Security-Scanning](#2-trufflehog-security-scanning)
-3. [Secret-Maskierung beim GitHub-Push](#3-secret-maskierung-beim-github-push)
-4. [Pushover-Benachrichtigungen](#4-pushover-benachrichtigungen)
-5. [Konfigurationsdateien](#5-konfigurationsdateien)
-6. [Notfall-Prozeduren](#6-notfall-prozeduren)
+3. [Cockpit Web-Interface](#3-cockpit-web-interface)
+4. [Scan-Ziele konfigurieren](#4-scan-ziele-konfigurieren)
+5. [Secret-Maskierung beim GitHub-Push](#5-secret-maskierung-beim-github-push)
+6. [Pushover-Benachrichtigungen](#6-pushover-benachrichtigungen)
+7. [Konfigurationsdateien](#7-konfigurationsdateien)
+8. [Notfall-Prozeduren](#8-notfall-prozeduren)
+
+**Weiterführende Dokumentation:** [TRUFFLEHOG-BETRIEBSHANDBUCH.md](TRUFFLEHOG-BETRIEBSHANDBUCH.md)
 
 ---
 
@@ -33,11 +37,47 @@ Das IcePorge Security-System schützt vor versehentlicher Veröffentlichung sens
 
 | Komponente | Zweck | Pfad |
 |------------|-------|------|
-| TruffleHog | Secret-Scanning in Git-Repos | `/usr/local/bin/trufflehog` |
+| TruffleHog | Secret-Scanning Engine | `/usr/local/bin/trufflehog` |
 | security-scan.sh | Automatisierter Security-Scan | `/opt/iceporge/scripts/security-scan.sh` |
+| Cockpit-Plugin | Web-Interface für Scans | `/opt/iceporge-cockpit/security-scanner/` |
+| trufflehog-targets.yaml | Konfigurierbare Scan-Ziele | `/opt/iceporge/config/trufflehog-targets.yaml` |
 | sync-to-github.sh | GitHub-Sync mit Maskierung | `/opt/iceporge/sync-to-github.sh` |
 | secrets.yaml | Zu maskierende Secrets | `/opt/iceporge/config/secrets.yaml` |
 | pushover.yaml | Benachrichtigungs-Config | `/opt/iceporge/config/pushover.yaml` |
+
+### 1.2 Architektur-Diagramm
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 IcePorge Security System                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌───────────────┐ │
+│  │  Cockpit Web UI  │  │  Cron Scheduler  │  │  CLI / Bash   │ │
+│  │  (Port 9090)     │  │  (0 3 * * *)     │  │               │ │
+│  └────────┬─────────┘  └────────┬─────────┘  └───────┬───────┘ │
+│           └─────────────────────┼────────────────────┘          │
+│                                 ▼                                │
+│           ┌─────────────────────────────────────────┐           │
+│           │         security-scan.sh                 │           │
+│           │  • Target Management (YAML-Config)      │           │
+│           │  • TruffleHog Wrapper                   │           │
+│           │  • Pushover Integration                 │           │
+│           └────────────────┬────────────────────────┘           │
+│                            ▼                                     │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                   TruffleHog Engine                       │  │
+│  ├────────────────┬────────────────┬────────────────────────┤  │
+│  │ GitHub Scanner │  Git Scanner   │  Filesystem Scanner    │  │
+│  └────────────────┴────────────────┴────────────────────────┘  │
+│                            │                                     │
+│           ┌────────────────┼────────────────┐                   │
+│           ▼                ▼                ▼                   │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐    │
+│  │ Console/Log │  │ JSON Report │  │ Pushover Alert      │    │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -83,9 +123,27 @@ trufflehog github --org=icepaule --json > /var/log/trufflehog-scan.json
 | `--local` | Nur lokale Repositories scannen |
 | `--github` | Nur GitHub scannen |
 | `--all` | Beides scannen |
+| `--target TARGET` | Einzelnes Ziel scannen |
+| `--type TYPE` | Ziel-Typ: git, github_repo, github_org, filesystem |
+| `--from-config` | Ziele aus trufflehog-targets.yaml lesen |
+| `--only-verified` | Nur verifizierte Secrets melden |
 | `--notify` | Pushover-Benachrichtigung bei Funden |
 | `--json` | JSON-Ausgabe |
+| `--report FILE` | Report in Datei schreiben |
+| `--test-pushover` | Pushover-Test senden |
 | `--verbose` | Detaillierte Ausgabe |
+
+**Beispiele:**
+```bash
+# Einzelnes GitHub-Repository scannen
+/opt/iceporge/scripts/security-scan.sh --target icepaule/IcePorge --type github_repo
+
+# Externe Organisation scannen
+/opt/iceporge/scripts/security-scan.sh --target external-org --type github_org --only-verified
+
+# Lokales Verzeichnis scannen
+/opt/iceporge/scripts/security-scan.sh --target /etc/nginx --type filesystem
+```
 
 ### 2.4 Cron-Einrichtung (Empfohlen)
 
@@ -96,7 +154,121 @@ trufflehog github --org=icepaule --json > /var/log/trufflehog-scan.json
 
 ---
 
-## 3. Secret-Maskierung beim GitHub-Push
+## 3. Cockpit Web-Interface
+
+### 3.1 Zugriff
+
+**URL:** `https://<host>:9090/cockpit/@localhost/security-scanner/`
+
+![Security Scanner Cockpit](../iceporge-cockpit/docs/screenshots/security-scanner.png)
+
+### 3.2 Funktionen
+
+| Tab | Funktionen |
+|-----|------------|
+| **Dashboard** | Quick-Scan-Buttons, Ziel-Statistiken, Live-Ausgabe |
+| **Scan-Ziele** | Alle konfigurierten Ziele verwalten, aktivieren/deaktivieren |
+| **Manueller Scan** | Beliebige Repositories scannen (auch externe) |
+| **Scheduler** | Cron-Jobs grafisch verwalten, Presets |
+| **Historie** | Scan-Logs und Berichte einsehen |
+| **Einstellungen** | Pushover-Config, Standardwerte |
+
+### 3.3 Quick Actions (Dashboard)
+
+- **Lokale Repos scannen** - Scannt alle lokalen Git-Repositories
+- **GitHub scannen** - Scannt die gesamte icepaule GitHub-Organisation
+- **Alle Ziele scannen** - Vollständiger Scan aller konfigurierten Ziele
+
+### 3.4 Externe Repositories scannen
+
+Im Tab "Manueller Scan" können beliebige Repositories gescannt werden:
+
+1. Scan-Typ wählen (GitHub Repo, GitHub Org, Lokales Git, Dateisystem)
+2. Ziel eingeben (z.B. `microsoft/vscode` oder `/var/www`)
+3. Optionen wählen (nur verifizierte Secrets, JSON-Ausgabe)
+4. "Scan starten" klicken
+
+---
+
+## 4. Scan-Ziele konfigurieren
+
+### 4.1 Konfigurationsdatei
+
+**Pfad:** `/opt/iceporge/config/trufflehog-targets.yaml`
+
+### 4.2 Ziel-Typen
+
+| Typ | Beschreibung | Beispiel |
+|-----|--------------|----------|
+| `github_org` | Gesamte GitHub-Organisation | `icepaule` |
+| `github_repo` | Einzelnes GitHub-Repository | `icepaule/IcePorge` |
+| `git` | Lokales Git-Repository | `/opt/iceporge` |
+| `filesystem` | Beliebiges Verzeichnis | `/etc/nginx` |
+
+### 4.3 Beispiel-Konfiguration
+
+```yaml
+# Globale Einstellungen
+settings:
+  default_schedule: daily
+  notify_on_findings: true
+  only_verified: true
+
+# GitHub Repositories
+github_targets:
+  - name: "IcePaule Organization"
+    type: github_org
+    target: "icepaule"
+    schedule: daily
+    enabled: true
+    only_verified: true
+
+  - name: "Externes Projekt"
+    type: github_repo
+    target: "owner/repo"
+    schedule: weekly
+    enabled: false
+
+# Lokale Git Repositories
+local_targets:
+  - name: "IcePorge Local"
+    type: git
+    target: "/opt/iceporge"
+    schedule: hourly
+    enabled: true
+
+# Dateisystem-Verzeichnisse
+filesystem_targets:
+  - name: "CAPE Config"
+    type: filesystem
+    target: "/opt/CAPEv2/conf"
+    schedule: daily
+    enabled: true
+```
+
+### 4.4 Schedule-Optionen
+
+| Schedule | Beschreibung |
+|----------|--------------|
+| `disabled` | Kein automatischer Scan |
+| `hourly` | Stündlich |
+| `daily` | Täglich (03:00 Uhr) |
+| `weekly` | Wöchentlich (Sonntag 03:00) |
+| `monthly` | Monatlich (1. des Monats) |
+
+### 4.5 Neues Ziel über Cockpit hinzufügen
+
+1. Im Tab "Scan-Ziele" auf "+ Neues Ziel" klicken
+2. Formular ausfüllen:
+   - Ziel-Typ auswählen
+   - Name und Pfad/URL eingeben
+   - Schedule wählen
+   - Optionen setzen
+3. "Hinzufügen" klicken
+
+---
+
+## 5. Secret-Maskierung beim GitHub-Push
 
 ### 3.1 Funktionsweise
 
@@ -127,7 +299,7 @@ secrets:
 
 ---
 
-## 4. Pushover-Benachrichtigungen
+## 6. Pushover-Benachrichtigungen
 
 ### 4.1 Konfiguration
 
@@ -165,18 +337,19 @@ curl -s --form-string "token=$PUSHOVER_TOKEN" --form-string "user=$PUSHOVER_USER
 
 ---
 
-## 5. Konfigurationsdateien
+## 7. Konfigurationsdateien
 
-### 5.1 Übersicht
+### 7.1 Übersicht
 
 | Datei | Zweck | In Git? |
 |-------|-------|---------|
 | `/opt/iceporge/config/pushover.yaml` | Pushover-Credentials | NEIN |
 | `/opt/iceporge/config/secrets.yaml` | Zu maskierende Secrets | NEIN |
+| `/opt/iceporge/config/trufflehog-targets.yaml` | Scan-Ziele Konfiguration | NEIN |
 | `/opt/iceporge/config/pushover.example.yaml` | Beispiel-Config | JA |
 | `/opt/iceporge/config/secrets.example.yaml` | Beispiel-Config | JA |
 
-### 5.2 Backup
+### 7.2 Backup
 
 ```bash
 # Wichtige Configs sichern (verschlüsselt)
@@ -185,9 +358,9 @@ tar -czf - /opt/iceporge/config/*.yaml | gpg -c > /backup/iceporge-config-$(date
 
 ---
 
-## 6. Notfall-Prozeduren
+## 8. Notfall-Prozeduren
 
-### 6.1 Secret wurde versehentlich auf GitHub gepusht
+### 8.1 Secret wurde versehentlich auf GitHub gepusht
 
 **Sofortmaßnahmen:**
 
@@ -223,7 +396,7 @@ tar -czf - /opt/iceporge/config/*.yaml | gpg -c > /backup/iceporge-config-$(date
    - Verwaiste Commits werden von GitHub gecacht
    - Support-Ticket: https://support.github.com
 
-### 6.2 Security-Scan schlägt fehl
+### 8.2 Security-Scan schlägt fehl
 
 1. **Logs prüfen:**
    ```bash
@@ -242,7 +415,7 @@ tar -czf - /opt/iceporge/config/*.yaml | gpg -c > /backup/iceporge-config-$(date
    gh auth status
    ```
 
-### 6.3 Kontakte
+### 8.3 Kontakte
 
 | Rolle | Kontakt |
 |-------|---------|
