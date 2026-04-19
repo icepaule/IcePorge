@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<h1>Security Dashboard</h1>
+
+<!-- Stats Cards -->
+<div class="stats-grid">
+    <div class="stat-card stat-total">
+        <div class="stat-value">{{ stats.total_reports }}</div>
+        <div class="stat-label">Phishing Reports (30 Tage)</div>
+    </div>
+    <div class="stat-card stat-malicious">
+        <div class="stat-value">{{ stats.malicious }}</div>
+        <div class="stat-label">Malicious</div>
+    </div>
+    <div class="stat-card stat-suspicious">
+        <div class="stat-value">{{ stats.suspicious }}</div>
+        <div class="stat-label">Suspicious</div>
+    </div>
+    <div class="stat-card stat-clean">
+        <div class="stat-value">{{ stats.clean }}</div>
+        <div class="stat-label">Clean</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #a78bfa;">{{ "%.0f"|format(stats.avg_score) }}</div>
+        <div class="stat-label">Durchschn. Score</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #2dd4bf;">{{ stats.enhanced_count }}</div>
+        <div class="stat-label">Enhanced Reports</div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;">
+    <!-- Recent Phishing Reports -->
+    <div class="card">
+        <div class="card-header">
+            <h2>Aktuelle Phishing Reports</h2>
+            <a href="/reports" class="btn btn-secondary">Alle anzeigen</a>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Datum</th>
+                    <th>Verdict</th>
+                    <th>Score</th>
+                    <th>Absender</th>
+                    <th>Betreff</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in recent_reports %}
+                <tr>
+                    <td>{{ report.date }}</td>
+                    <td>
+                        <span class="badge badge-{{ report.verdict }}">{{ report.verdict }}</span>
+                        {% if report.enhanced %}<span class="badge badge-enhanced">Enhanced</span>{% endif %}
+                    </td>
+                    <td>
+                        <span class="score-bar">
+                            <span class="score-fill {% if report.score >= 70 %}score-high{% elif report.score >= 40 %}score-medium{% else %}score-low{% endif %}"
+                                  style="width: {{ report.score }}%"></span>
+                        </span>
+                        {{ report.score }}
+                    </td>
+                    <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ report.sender }}
+                    </td>
+                    <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        {{ report.subject }}
+                    </td>
+                    <td><a href="/report/{{ report.id }}" target="_blank" class="btn btn-primary">Ansehen</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align: center; color: #64748b;">Keine Reports gefunden</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- System Status & CAPE -->
+    <div>
+        <!-- System Status -->
+        <div class="card">
+            <div class="card-header">
+                <h2>System Status</h2>
+                <span class="status-dot status-{{ status.overall_status }}"></span>
+            </div>
+            <table>
+                {% for component, state in status.components.items() %}
+                <tr>
+                    <td>{{ component.replace('_', ' ').title() }}</td>
+                    <td style="text-align: right;">
+                        <span class="status-dot status-{{ state }}"></span>
+                        {{ state }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% if status.disk_usage %}
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155;">
+                <small style="color: #64748b;">
+                    Speicher: {{ status.disk_usage.cape_data_avail_gb }} GB frei ({{ status.disk_usage.cape_data_percent }}% belegt)<br>
+                    Analysen: {{ status.analyses_count }}
+                </small>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Recent CAPE Analyses -->
+        <div class="card">
+            <div class="card-header">
+                <h2>CAPE Analysen</h2>
+                <a href="/cape" class="btn btn-secondary">Alle</a>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Datei</th>
+                        <th>Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for analysis in recent_analyses %}
+                    <tr>
+                        <td><a href="{{ cape_url }}/analysis/{{ analysis.id }}/" target="_blank">#{{ analysis.id }}</a></td>
+                        <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            {{ analysis.filename }}
+                        </td>
+                        <td>
+                            <span style="color: {% if analysis.malscore >= 7 %}#ef4444{% elif analysis.malscore >= 4 %}#f59e0b{% else %}#22c55e{% endif %};">
+                                {{ analysis.malscore }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" style="text-align: center; color: #64748b;">Keine Analysen</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Links -->
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>Quick Links</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+        <a href="{{ cape_url }}/submit/" target="_blank" class="btn btn-primary">Sample einreichen</a>
+        <a href="{{ mwdb_url }}" target="_blank" class="btn btn-secondary">MWDB Samples</a>
+        <a href="http://localhost:8082" target="_blank" class="btn btn-secondary">Karton Pipeline</a>
+        <a href="/api/reports" target="_blank" class="btn btn-secondary">API: Reports JSON</a>
+        <a href="/api/statistics" target="_blank" class="btn btn-secondary">API: Statistics</a>
+    </div>
+</div>
+{% endblock %}

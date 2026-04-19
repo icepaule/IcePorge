@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}CAPE Analysen{% endblock %}
+
+{% block content %}
+<h1>CAPE Sandbox Analysen</h1>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Datum</th>
+                <th>Dateiname</th>
+                <th>SHA256</th>
+                <th>Malscore</th>
+                <th>Signaturen</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for analysis in analyses %}
+            <tr>
+                <td><strong>#{{ analysis.id }}</strong></td>
+                <td>{{ analysis.date }}</td>
+                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ analysis.filename }}
+                </td>
+                <td style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ analysis.sha256 }}</td>
+                <td>
+                    <span style="font-size: 1.2rem; font-weight: bold; color: {% if analysis.malscore >= 7 %}#ef4444{% elif analysis.malscore >= 4 %}#f59e0b{% else %}#22c55e{% endif %};">
+                        {{ analysis.malscore }}
+                    </span>
+                </td>
+                <td>{{ analysis.signatures }}</td>
+                <td>
+                    <a href="{{ cape_url }}/analysis/{{ analysis.id }}/" target="_blank" class="btn btn-primary" style="padding: 0.25rem 0.75rem;">
+                        CAPE
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 3rem; color: #64748b;">
+                    Keine CAPE-Analysen gefunden
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>Sample einreichen</h2>
+    <p style="color: #94a3b8; margin-top: 1rem;">
+        Samples können direkt über die CAPE Web-UI eingereicht werden:
+    </p>
+    <a href="{{ cape_url }}/submit/" target="_blank" class="btn btn-primary" style="margin-top: 1rem;">
+        Zur CAPE Submission
+    </a>
+</div>
+{% endblock %}

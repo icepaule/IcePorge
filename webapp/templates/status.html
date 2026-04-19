@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}System Status{% endblock %}
+
+{% block content %}
+<h1>System Status</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">
+            <span class="status-dot status-{{ status.overall_status }}" style="width: 20px; height: 20px;"></span>
+        </div>
+        <div class="stat-label">{{ status.overall_status|upper }}</div>
+    </div>
+    {% if status.disk_usage %}
+    <div class="stat-card">
+        <div class="stat-value" style="color: {% if status.disk_usage.cape_data_percent > 90 %}#ef4444{% elif status.disk_usage.cape_data_percent > 75 %}#f59e0b{% else %}#22c55e{% endif %};">
+            {{ status.disk_usage.cape_data_avail_gb }}
+        </div>
+        <div class="stat-label">GB frei</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #a78bfa;">{{ status.analyses_count }}</div>
+        <div class="stat-label">Analysen</div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Komponenten Status</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Komponente</th>
+                <th>Status</th>
+                <th>Beschreibung</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set descriptions = {
+                'cape_services': 'CAPE Sandbox Services (cape, cape-processor, cape-web, cape-rooter)',
+                'docker_containers': 'MWDB Stack, Karton Pipeline, Feed Services',
+                'disk_space': 'Speicherplatz auf /mnt/cape-data',
+                'vms': 'KVM/libvirt Analyse-VMs und Netzwerke',
+                'karton_pipeline': 'Karton Task Orchestration',
+                'mwdb': 'MWDB Core API und Datenbank',
+                'cape_web': 'CAPE Web Interface',
+                'cape_mailer': 'E-Mail Ingest und Phishing-Analyse',
+                'gpu_server': 'Ollama LLM / Ghidra auf GPU-Server'
+            } %}
+            {% for component, state in status.components.items() %}
+            <tr>
+                <td>
+                    <strong>{{ component.replace('_', ' ').title() }}</strong>
+                </td>
+                <td>
+                    <span class="status-dot status-{{ state }}"></span>
+                    <span style="color: {% if state == 'ok' %}#22c55e{% elif state == 'warning' %}#f59e0b{% else %}#ef4444{% endif %};">
+                        {{ state|upper }}
+                    </span>
+                </td>
+                <td style="color: #94a3b8; font-size: 0.9rem;">
+                    {{ descriptions.get(component, '') }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>System Tools</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+        <form action="/status" method="get" style="display: inline;">
+            <button type="submit" class="btn btn-primary">Status aktualisieren</button>
+        </form>
+        <a href="/api/status" target="_blank" class="btn btn-secondary">API: Status JSON</a>
+    </div>
+    <div style="margin-top: 1.5rem; padding: 1rem; background: #0f172a; border-radius: 8px;">
+        <code style="color: #94a3b8;">
+            CLI: <span style="color: #22c55e;">iceporge-status</span><br>
+            Monitor: <span style="color: #22c55e;">/opt/iceporge/scripts/iceporge-monitor.sh status</span><br>
+            Cleanup: <span style="color: #22c55e;">/opt/iceporge/scripts/iceporge-cleanup.sh auto</span>
+        </code>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem;">
+    <h2>Letzte Aktualisierung</h2>
+    <p style="color: #64748b;">
+        {{ status.timestamp if status.timestamp else 'Unbekannt' }}
+    </p>
+</div>
+{% endblock %}

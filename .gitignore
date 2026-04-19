@@ -23,6 +23,10 @@ config/pushover.yaml
 config/secrets.yaml
 config/*.yaml
 !config/*.example.yaml
+install/config.env
+!install/config.env.example
+config/.env*
+!config/.env.example
 
 # API keys and tokens
 **/api_key*
@@ -37,6 +41,8 @@ config/*.yaml
 state.db
 *.lock
 *.pid
+status/*.json
+status/health.json
 
 # Logs and reports
 logs/

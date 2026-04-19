@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Phishing Reports{% endblock %}
+
+{% block content %}
+<h1>Phishing Reports</h1>
+
+<!-- Filters -->
+<div class="card">
+    <form method="get" class="filters">
+        <div class="filter-group">
+            <label>Zeitraum:</label>
+            <select name="days" onchange="this.form.submit()">
+                <option value="7" {% if days == 7 %}selected{% endif %}>7 Tage</option>
+                <option value="14" {% if days == 14 %}selected{% endif %}>14 Tage</option>
+                <option value="30" {% if days == 30 %}selected{% endif %}>30 Tage</option>
+                <option value="90" {% if days == 90 %}selected{% endif %}>90 Tage</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Verdict:</label>
+            <select name="verdict" onchange="this.form.submit()">
+                <option value="">Alle</option>
+                <option value="malicious" {% if verdict == 'malicious' %}selected{% endif %}>Malicious</option>
+                <option value="suspicious" {% if verdict == 'suspicious' %}selected{% endif %}>Suspicious</option>
+                <option value="clean" {% if verdict == 'clean' %}selected{% endif %}>Clean</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Min. Score:</label>
+            <input type="number" name="min_score" value="{{ min_score }}" min="0" max="100" style="width: 80px;" onchange="this.form.submit()">
+        </div>
+        <div class="filter-group">
+            <span style="color: #64748b;">{{ reports|length }} Reports gefunden</span>
+        </div>
+    </form>
+</div>
+
+<!-- Reports Table -->
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>ID</th>
+                <th>Verdict</th>
+                <th>Score</th>
+                <th>Absender</th>
+                <th>Betreff</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for report in reports %}
+            <tr>
+                <td>{{ report.date }}</td>
+                <td style="font-family: monospace; font-size: 0.85rem;">{{ report.id }}</td>
+                <td>
+                    <span class="badge badge-{{ report.verdict }}">{{ report.verdict }}</span>
+                    {% if report.enhanced %}<span class="badge badge-enhanced" title="Erweiterte forensische Analyse">+</span>{% endif %}
+                </td>
+                <td>
+                    <span class="score-bar">
+                        <span class="score-fill {% if report.score >= 70 %}score-high{% elif report.score >= 40 %}score-medium{% else %}score-low{% endif %}"
+                              style="width: {{ report.score }}%"></span>
+                    </span>
+                    <strong>{{ report.score }}</strong>
+                </td>
+                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ report.sender }}">
+                    {{ report.sender }}
+                </td>
+                <td style="max-width: 350px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ report.subject }}">
+                    {{ report.subject }}
+                </td>
+                <td style="white-space: nowrap;">
+                    <a href="/report/{{ report.id }}/analysis" class="btn btn-primary" style="padding: 0.25rem 0.75rem;">
+                        Analyse
+                    </a>
+                    <a href="/report/{{ report.id }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.75rem;">
+                        HTML
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 3rem; color: #64748b;">
+                    Keine Reports für die gewählten Filter gefunden
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

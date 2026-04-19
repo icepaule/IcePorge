@@ -11,25 +11,48 @@ IcePorge is a modular, enterprise-grade malware analysis ecosystem that integrat
 
 ## Quick Start
 
-### Clone Everything
+### Option 1: AWS CloudShell Deployment (Recommended)
+
+Deploy IcePorge on AWS Ubuntu with a single command sequence:
+
+```bash
+# From AWS CloudShell - creates EC2 instance with full IcePorge stack
+# See docs/aws/AWS-CLOUDSHELL-DEPLOY.md for complete guide
+
+# 1. Create EC2 Instance
+export INSTANCE_TYPE="t3.2xlarge" VOLUME_SIZE="500"
+# ... (see full script in docs/aws/)
+
+# 2. SSH and install
+ssh -i ~/.ssh/iceporge-key.pem ubuntu@$PUBLIC_IP
+sudo git clone https://github.com/icepaule/IcePorge.git /opt/iceporge
+cd /opt/iceporge && sudo ./install/install-iceporge.sh
+```
+
+**Full AWS deployment guide:** [docs/aws/AWS-CLOUDSHELL-DEPLOY.md](docs/aws/AWS-CLOUDSHELL-DEPLOY.md)
+
+### Option 2: On-Premise Installation
 
 ```bash
 # Clone main repository
-git clone https://github.com/icepaule/IcePorge.git
-cd IcePorge
+git clone https://github.com/icepaule/IcePorge.git /opt/iceporge
+cd /opt/iceporge
 
-# Clone all component repositories
+# Configure
+cp install/config.env.example install/config.env
+nano install/config.env
+
+# Install
+sudo ./install/install-iceporge.sh --config install/config.env
+```
+
+### Clone All Component Repositories
+
+```bash
 ./scripts/clone-all.sh
 
 # For HTTPS instead of SSH:
 ./scripts/clone-all.sh --https
-```
-
-### Update All Repositories
-
-```bash
-# Pull latest from all repos
-./scripts/clone-all.sh
 ```
 
 ---
@@ -121,8 +144,50 @@ flowchart TB
 
 ### AI-Enhanced Analysis
 - **Ollama Integration** - Local LLM inference (privacy-focused)
+- **AWS Bedrock** - Cloud-based Claude analysis (enterprise)
 - **RAG Pipeline** - Context-aware malware analysis
 - **Vector Search** - Semantic similarity with Qdrant
+
+### Web Dashboard
+- **Phishing Reports** - Interactive report browser with filtering
+- **SMTP Header Analysis** - Mail routing chain, authentication status
+- **Security Recommendations** - Actionable guidance for mail gateway hardening
+- **System Status** - Real-time health monitoring
+
+---
+
+## AWS Deployment
+
+### CloudShell Quick Deploy
+
+Full deployment from AWS CloudShell in under 30 minutes:
+
+| Phase | Description | Time |
+|-------|-------------|------|
+| 1 | EC2 Instance erstellen | 5 min |
+| 2 | IcePorge installieren | 15 min |
+| 3 | WireGuard für Ollama | 5 min |
+| 4 | Bedrock aktivieren | 5 min |
+
+**Documentation:**
+- [AWS CloudShell Deployment](docs/aws/AWS-CLOUDSHELL-DEPLOY.md) - Complete step-by-step guide
+- [WireGuard Ollama Connection](docs/aws/WIREGUARD-OLLAMA.md) - Secure on-premise LLM access
+- [Configuration Reference](install/config.env.example) - All configuration options
+
+### AI Backend Options
+
+| Backend | Use Case | Latency | Cost |
+|---------|----------|---------|------|
+| Ollama (On-Prem) | Privacy-sensitive, low latency | ~2s | Hardware only |
+| AWS Bedrock | Enterprise, high accuracy | ~3s | Pay-per-token |
+| Both | Fallback/comparison | Varies | Combined |
+
+```bash
+# In config.env:
+AI_BACKEND="both"  # ollama, bedrock, or both
+OLLAMA_API_URL="http://10.10.0.210:11434"  # via WireGuard
+BEDROCK_MODEL_ID="anthropic.claude-3-sonnet-20240229-v1:0"
+```
 
 ---
 
@@ -162,7 +227,44 @@ Features:
 
 ---
 
-## Management UI
+## Web Dashboard
+
+IcePorge includes a built-in web dashboard for phishing report management and system monitoring.
+
+**Access:** `http://your-server:8085`
+
+### Features
+
+| Page | Function |
+|------|----------|
+| `/` | Dashboard with statistics and system health |
+| `/reports` | Phishing reports with filtering (time, verdict, score) |
+| `/report/<id>/analysis` | Detailed SMTP header analysis |
+| `/cape` | CAPE sandbox analyses overview |
+| `/status` | System component health status |
+
+### SMTP Header Analysis
+
+The report analysis view provides:
+- **Sender Information** - Real email vs display name (spoofing detection)
+- **Authentication** - SPF/DKIM/DMARC validation results
+- **Mail Routing Chain** - Complete path through all servers with TLS status
+- **IP Geolocation** - Origin countries with high-risk warnings
+- **Security Systems** - Detected gateways (Sophos, Barracuda, etc.)
+- **Recommendations** - Actionable steps for mail security improvement
+
+### API Endpoints
+
+```bash
+GET /api/reports          # All phishing reports (JSON)
+GET /api/report/<id>/headers  # Header analysis (JSON)
+GET /api/statistics       # Report statistics
+GET /api/status          # System health
+```
+
+---
+
+## Management UI (Cockpit)
 
 Access via Cockpit at `https://your-server:9090/`:
 - **CAPE Sandbox** - Service status, VM management

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}IcePorge{% endblock %} - Security Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        /* Navigation */
+        nav {
+            background: #1e293b;
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            border-bottom: 1px solid #334155;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #38bdf8;
+            text-decoration: none;
+        }
+        .logo span { color: #f97316; }
+        nav a {
+            color: #94a3b8;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        nav a:hover, nav a.active {
+            color: #fff;
+            background: #334155;
+        }
+        .nav-right {
+            margin-left: auto;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Status Indicator */
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .status-ok { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+        .status-warning { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+        .status-critical { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+        /* Main Content */
+        main {
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #f1f5f9;
+        }
+        h2 {
+            font-size: 1.3rem;
+            margin-bottom: 1rem;
+            color: #cbd5e1;
+        }
+
+        /* Cards */
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid #334155;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        .stat-malicious .stat-value { color: #ef4444; }
+        .stat-suspicious .stat-value { color: #f59e0b; }
+        .stat-clean .stat-value { color: #22c55e; }
+        .stat-total .stat-value { color: #38bdf8; }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+        th {
+            background: #0f172a;
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+        tr:hover {
+            background: #334155;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-malicious { background: #7f1d1d; color: #fca5a5; }
+        .badge-suspicious { background: #78350f; color: #fcd34d; }
+        .badge-clean { background: #14532d; color: #86efac; }
+        .badge-enhanced { background: #1e3a5f; color: #7dd3fc; }
+
+        /* Buttons */
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-secondary { background: #334155; color: #e2e8f0; }
+        .btn-secondary:hover { background: #475569; }
+
+        /* Score Bar */
+        .score-bar {
+            width: 60px;
+            height: 8px;
+            background: #334155;
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        .score-fill {
+            height: 100%;
+            border-radius: 4px;
+        }
+        .score-low { background: #22c55e; }
+        .score-medium { background: #f59e0b; }
+        .score-high { background: #ef4444; }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        select, input {
+            background: #0f172a;
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+        }
+
+        /* Links */
+        a { color: #38bdf8; }
+        a:hover { color: #7dd3fc; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="logo">Ice<span>Porge</span></a>
+        <a href="/" class="{% if request.path == '/' %}active{% endif %}">Dashboard</a>
+        <a href="/reports" class="{% if '/reports' in request.path %}active{% endif %}">Phishing Reports</a>
+        <a href="/cape" class="{% if '/cape' in request.path %}active{% endif %}">CAPE Analysen</a>
+        <a href="/status" class="{% if '/status' in request.path %}active{% endif %}">System Status</a>
+        <div class="nav-right">
+            <span class="status-dot status-{{ status.overall_status if status else 'unknown' }}"></span>
+            <a href="{{ mwdb_url }}" target="_blank" class="btn btn-secondary">MWDB</a>
+            <a href="{{ cape_url }}" target="_blank" class="btn btn-secondary">CAPE</a>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        IcePorge Security Dashboard &bull; Malware Analysis Ecosystem
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>
