@@ -4,65 +4,135 @@
 {% block content %}
 <h1>System Status</h1>
 
+{% set cs = status.cape_stats %}
+{% set disk = status.disk %}
+{% set comp = status.components %}
+
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-value">
             <span class="status-dot status-{{ status.overall_status }}" style="width: 20px; height: 20px;"></span>
         </div>
-        <div class="stat-label">{{ status.overall_status|upper }}</div>
+        <div class="stat-label">{{ status.overall_status|upper if status.overall_status else 'UNKNOWN' }}</div>
     </div>
-    {% if status.disk_usage %}
+    {% if disk %}
     <div class="stat-card">
-        <div class="stat-value" style="color: {% if status.disk_usage.cape_data_percent > 90 %}#ef4444{% elif status.disk_usage.cape_data_percent > 75 %}#f59e0b{% else %}#22c55e{% endif %};">
-            {{ status.disk_usage.cape_data_avail_gb }}
+        <div class="stat-value" style="color: {% if disk.percent_used > 90 %}#ef4444{% elif disk.percent_used > 75 %}#f59e0b{% else %}#22c55e{% endif %}; font-size: 1.8rem;">
+            {{ disk.free }}
         </div>
-        <div class="stat-label">GB frei</div>
+        <div class="stat-label">Speicher frei ({{ disk.percent_used }}% belegt)</div>
+    </div>
+    {% endif %}
+    {% if cs %}
+    <div class="stat-card">
+        <div class="stat-value" style="color: #38bdf8;">{{ cs.total_tasks }}</div>
+        <div class="stat-label">Analysen gesamt</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" style="color: #a78bfa;">{{ status.analyses_count }}</div>
-        <div class="stat-label">Analysen</div>
+        <div class="stat-value" style="color: #22c55e;">{{ cs.reported }}</div>
+        <div class="stat-label">Erfolgreich analysiert</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #f59e0b;">{{ cs.pending }}</div>
+        <div class="stat-label">Ausstehend</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color: #ef4444;">{{ cs.failed }}</div>
+        <div class="stat-label">Fehlgeschlagen</div>
     </div>
     {% endif %}
 </div>
+
+{% if cs %}
+<div class="card">
+    <h2>CAPE Statistiken (24h)</h2>
+    <table>
+        <tr><td>Neue Samples</td><td><strong>{{ cs.added_24h }}</strong></td></tr>
+        <tr><td>Abgeschlossen</td><td><strong>{{ cs.completed_24h }}</strong></td></tr>
+        <tr><td>Aktuell laufend</td><td><strong>{{ cs.running }}</strong></td></tr>
+    </table>
+</div>
+{% endif %}
+
+{% if status.feeder_stats %}
+{% set fs = status.feeder_stats %}
+<div class="card">
+    <h2>Feed Statistiken</h2>
+    <table>
+        <tr><td>Samples gesehen (gesamt)</td><td><strong>{{ fs.total_seen }}</strong></td></tr>
+        <tr><td>Heute</td><td><strong>{{ fs.seen_today }}</strong></td></tr>
+        <tr><td>Letzte 7 Tage</td><td><strong>{{ fs.seen_7d }}</strong></td></tr>
+    </table>
+</div>
+{% endif %}
 
 <div class="card">
     <h2>Komponenten Status</h2>
     <table>
         <thead>
-            <tr>
-                <th>Komponente</th>
-                <th>Status</th>
-                <th>Beschreibung</th>
-            </tr>
+            <tr><th>Komponente</th><th>Status</th><th>Details</th></tr>
         </thead>
         <tbody>
-            {% set descriptions = {
-                'cape_services': 'CAPE Sandbox Services (cape, cape-processor, cape-web, cape-rooter)',
-                'docker_containers': 'MWDB Stack, Karton Pipeline, Feed Services',
-                'disk_space': 'Speicherplatz auf /mnt/cape-data',
-                'vms': 'KVM/libvirt Analyse-VMs und Netzwerke',
-                'karton_pipeline': 'Karton Task Orchestration',
-                'mwdb': 'MWDB Core API und Datenbank',
-                'cape_web': 'CAPE Web Interface',
-                'cape_mailer': 'E-Mail Ingest und Phishing-Analyse',
-                'gpu_server': 'Ollama LLM / Ghidra auf GPU-Server'
-            } %}
-            {% for component, state in status.components.items() %}
-            <tr>
-                <td>
-                    <strong>{{ component.replace('_', ' ').title() }}</strong>
-                </td>
-                <td>
-                    <span class="status-dot status-{{ state }}"></span>
-                    <span style="color: {% if state == 'ok' %}#22c55e{% elif state == 'warning' %}#f59e0b{% else %}#ef4444{% endif %};">
-                        {{ state|upper }}
-                    </span>
-                </td>
-                <td style="color: #94a3b8; font-size: 0.9rem;">
-                    {{ descriptions.get(component, '') }}
-                </td>
-            </tr>
-            {% endfor %}
+        {% if comp.cape %}
+        <tr>
+            <td><strong>CAPE Sandbox</strong></td>
+            <td>
+                {% if comp.cape.status == 'active' %}
+                    <span class="status-dot status-ok"></span> <span style="color:#22c55e">ACTIVE</span>
+                {% else %}
+                    <span class="status-dot status-critical"></span> <span style="color:#ef4444">{{ comp.cape.status|upper }}</span>
+                {% endif %}
+            </td>
+            <td style="color:#94a3b8;font-size:0.9rem;">
+                Web: {{ comp.cape.web }} &bull; Processor: {{ comp.cape.processor }}
+            </td>
+        </tr>
+        {% endif %}
+        {% if comp.mwdb %}
+        <tr>
+            <td><strong>MWDB Stack</strong></td>
+            <td>
+                {% if comp.mwdb.containers_running > 0 %}
+                    <span class="status-dot status-ok"></span> <span style="color:#22c55e">RUNNING</span>
+                {% else %}
+                    <span class="status-dot status-critical"></span> <span style="color:#ef4444">DOWN</span>
+                {% endif %}
+            </td>
+            <td style="color:#94a3b8;font-size:0.9rem;">
+                {{ comp.mwdb.containers_running }} Container &bull; Karton: {{ comp.mwdb.karton_running }}
+            </td>
+        </tr>
+        {% endif %}
+        {% if comp.iceporge %}
+        <tr>
+            <td><strong>IcePorge Web</strong></td>
+            <td>
+                {% if comp.iceporge.web == 'active' %}
+                    <span class="status-dot status-ok"></span> <span style="color:#22c55e">ACTIVE</span>
+                {% else %}
+                    <span class="status-dot status-warning"></span> <span style="color:#f59e0b">{{ comp.iceporge.web|upper }}</span>
+                {% endif %}
+            </td>
+            <td style="color:#94a3b8;font-size:0.9rem;">
+                MongoDB: {{ comp.iceporge.mongod }}
+            </td>
+        </tr>
+        {% endif %}
+        {% if comp.infrastructure %}
+        <tr>
+            <td><strong>Infrastruktur</strong></td>
+            <td>
+                {% if comp.infrastructure.nginx == 'active' %}
+                    <span class="status-dot status-ok"></span> <span style="color:#22c55e">OK</span>
+                {% else %}
+                    <span class="status-dot status-warning"></span> <span style="color:#f59e0b">DEGRADED</span>
+                {% endif %}
+            </td>
+            <td style="color:#94a3b8;font-size:0.9rem;">
+                Nginx: {{ comp.infrastructure.nginx }} &bull; Suricata: {{ comp.infrastructure.suricata }}
+            </td>
+        </tr>
+        {% endif %}
         </tbody>
     </table>
 </div>
@@ -74,19 +144,19 @@
             <button type="submit" class="btn btn-primary">Status aktualisieren</button>
         </form>
         <a href="/api/status" target="_blank" class="btn btn-secondary">API: Status JSON</a>
+        <a href="/api/statistics" target="_blank" class="btn btn-secondary">API: Statistiken</a>
     </div>
     <div style="margin-top: 1.5rem; padding: 1rem; background: #0f172a; border-radius: 8px;">
-        <code style="color: #94a3b8;">
-            CLI: <span style="color: #22c55e;">iceporge-status</span><br>
-            Monitor: <span style="color: #22c55e;">/opt/iceporge/scripts/iceporge-monitor.sh status</span><br>
-            Cleanup: <span style="color: #22c55e;">/opt/iceporge/scripts/iceporge-cleanup.sh auto</span>
+        <code style="color: #94a3b8; font-size: 0.85rem;">
+            Monitor: <span style="color: #22c55e;">/opt/iceporge/scripts/iceporge-monitor.sh</span><br>
+            Status: <span style="color: #22c55e;">/opt/iceporge/scripts/collect-status.sh</span> (cron: */5 min)
         </code>
     </div>
 </div>
 
 <div class="card" style="margin-top: 1.5rem;">
     <h2>Letzte Aktualisierung</h2>
-    <p style="color: #64748b;">
+    <p style="color: #64748b; margin-top: 0.5rem;">
         {{ status.timestamp if status.timestamp else 'Unbekannt' }}
     </p>
 </div>

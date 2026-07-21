@@ -2,15 +2,6 @@
 """
 IcePorge LLM Provider Abstraction
 Supports: Ollama (on-premise), AWS Bedrock
-
-Usage:
-    from llm_provider import get_llm
-
-    llm = get_llm()
-    llm.register_ollama("http://10.10.0.210:11434", primary=True)
-    llm.register_bedrock("eu-central-1", "anthropic.claude-3-sonnet-20240229-v1:0")
-
-    result = llm.analyze("Analyze this malware sample", context="...")
 """
 
 import os
@@ -87,17 +78,23 @@ class BedrockProvider(LLMProvider):
     def client(self):
         if self._client is None:
             import boto3
+            from botocore.config import Config as BotocoreConfig
             self._client = boto3.client(
                 'bedrock-runtime',
-                region_name=self.region
+                region_name=self.region,
+                config=BotocoreConfig(
+                    read_timeout=300,
+                    connect_timeout=10,
+                    retries={'max_attempts': 2},
+                ),
             )
         return self._client
 
     def analyze(self, prompt: str, context: str = "") -> str:
         full_prompt = f"{context}\n\n{prompt}" if context else prompt
 
-        # Claude model format
-        if "anthropic.claude" in self.model_id:
+        # Claude model format (auch eu./us. cross-region inference prefix)
+        if "anthropic.claude" in self.model_id or "anthropic/claude" in self.model_id:
             body = {
                 "anthropic_version": "bedrock-2023-05-31",
                 "max_tokens": self.max_tokens,
@@ -106,7 +103,6 @@ class BedrockProvider(LLMProvider):
                 ]
             }
         else:
-            # Generic format for other models
             body = {
                 "prompt": full_prompt,
                 "max_tokens": self.max_tokens
@@ -122,9 +118,12 @@ class BedrockProvider(LLMProvider):
 
             response_body = json.loads(response['body'].read())
 
-            # Extract response based on model type
-            if "anthropic.claude" in self.model_id:
-                return response_body.get("content", [{}])[0].get("text", "")
+            if "anthropic.claude" in self.model_id or "anthropic/claude" in self.model_id:
+                text = response_body.get("content", [{}])[0].get("text", "")
+                stop_reason = response_body.get("stop_reason", "")
+                if stop_reason == "max_tokens":
+                    text += "\n\n---\n*[Analyse wurde durch Token-Limit abgeschnitten — für vollständige Ausgabe max_tokens erhöhen]*"
+                return text
             else:
                 return response_body.get("completion", response_body.get("generated_text", ""))
 
@@ -134,16 +133,15 @@ class BedrockProvider(LLMProvider):
 
     def is_available(self) -> bool:
         try:
-            import boto3
-            client = boto3.client('bedrock', region_name=self.region)
-            client.list_foundation_models(maxResults=1)
+            # Simple connectivity check
+            self.client.list_foundation_models(maxResults=1)
             return True
         except:
             return False
 
 
 class LLMProviderFactory:
-    """Factory to create and manage LLM providers with fallback."""
+    """Factory to create and manage LLM providers."""
 
     _instance = None
 
@@ -180,7 +178,7 @@ class LLMProviderFactory:
 
     def analyze(self, prompt: str, context: str = "",
                 provider: Optional[str] = None) -> str:
-        """Analyze using specified or primary provider with automatic fallback."""
+        """Analyze using specified or primary provider with fallback."""
         providers_to_try = []
 
         if provider:
@@ -204,57 +202,25 @@ class LLMProviderFactory:
 
         raise RuntimeError("No LLM provider available")
 
-    def list_providers(self) -> dict:
-        """List all registered providers and their status."""
-        return {
-            name: {
-                "available": p.is_available(),
-                "primary": name == self._primary
-            }
-            for name, p in self._providers.items()
-        }
-
 
 # Convenience function
 def get_llm() -> LLMProviderFactory:
-    """Get the LLM provider factory singleton."""
+    """Get the LLM provider factory instance."""
     return LLMProviderFactory()
-
-
-def init_from_env():
-    """Initialize providers from environment variables."""
-    factory = get_llm()
-
-    # Ollama
-    ollama_url = os.getenv("OLLAMA_API_URL")
-    if ollama_url:
-        factory.register_ollama(
-            ollama_url,
-            model=os.getenv("OLLAMA_MODEL", "llama3.1:8b"),
-            timeout=int(os.getenv("OLLAMA_TIMEOUT", "120")),
-            primary=os.getenv("AI_BACKEND", "ollama") in ["ollama", "both"]
-        )
-
-    # Bedrock
-    aws_region = os.getenv("AWS_REGION")
-    bedrock_model = os.getenv("BEDROCK_MODEL_ID")
-    if aws_region and bedrock_model:
-        factory.register_bedrock(
-            aws_region,
-            bedrock_model,
-            max_tokens=int(os.getenv("BEDROCK_MAX_TOKENS", "4096")),
-            primary=os.getenv("AI_BACKEND") == "bedrock"
-        )
-
-    return factory
 
 
 if __name__ == "__main__":
     # Test
-    logging.basicConfig(level=logging.INFO)
+    factory = get_llm()
 
-    factory = init_from_env()
+    # Example registration (use environment variables in production)
+    ollama_url = os.getenv("OLLAMA_API_URL", "http://10.10.0.210:11434")
+    factory.register_ollama(ollama_url, primary=True)
 
-    print("Registered providers:")
-    for name, status in factory.list_providers().items():
-        print(f"  {name}: available={status['available']}, primary={status['primary']}")
+    if os.getenv("AWS_REGION"):
+        factory.register_bedrock(
+            os.getenv("AWS_REGION"),
+            os.getenv("BEDROCK_MODEL_ID", "anthropic.claude-3-sonnet-20240229-v1:0")
+        )
+
+    print(f"Ollama available: {factory.get_provider('ollama').is_available()}")

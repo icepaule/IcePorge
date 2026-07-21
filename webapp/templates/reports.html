@@ -2,7 +2,10 @@
 {% block title %}Phishing Reports{% endblock %}
 
 {% block content %}
-<h1>Phishing Reports</h1>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+  <h1 style="margin:0;">Phishing Reports</h1>
+  <a href="/phishing/upload" style="background:#0ea5e9;color:#fff;padding:0.5rem 1.1rem;border-radius:6px;text-decoration:none;font-size:0.9rem;font-weight:600;">+ Mail analysieren</a>
+</div>
 
 <!-- Filters -->
 <div class="card">
@@ -74,6 +77,9 @@
                 <td style="white-space: nowrap;">
                     <a href="/report/{{ report.id }}/analysis" class="btn btn-primary" style="padding: 0.25rem 0.75rem;">
                         Analyse
+                    </a>
+                    <a href="/report/{{ report.id }}/pdf" class="btn btn-secondary" style="padding: 0.25rem 0.75rem;background:#0ea5e9;color:#fff;border-color:#0ea5e9;">
+                        ⬇ PDF
                     </a>
                     <a href="/report/{{ report.id }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.75rem;">
                         HTML

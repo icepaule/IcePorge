@@ -2,60 +2,854 @@
 {% block title %}CAPE Analysen{% endblock %}
 
 {% block content %}
-<h1>CAPE Sandbox Analysen</h1>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+  <div>
+    <h1 style="margin-bottom:0.25rem;">CAPE Sandbox Analysen</h1>
+    <span style="color:#64748b;font-size:0.9rem;">{{ total }} Ergebnisse &middot; letzte {{ days }} Tage</span>
+  </div>
+  <a href="{{ cape_url }}/submit/" target="_blank" class="btn btn-primary">+ Sample einreichen</a>
+</div>
 
-<div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Datum</th>
-                <th>Dateiname</th>
-                <th>SHA256</th>
-                <th>Malscore</th>
-                <th>Signaturen</th>
-                <th>Aktionen</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for analysis in analyses %}
-            <tr>
-                <td><strong>#{{ analysis.id }}</strong></td>
-                <td>{{ analysis.date }}</td>
-                <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    {{ analysis.filename }}
-                </td>
-                <td style="font-family: monospace; font-size: 0.8rem; color: #64748b;">{{ analysis.sha256 }}</td>
-                <td>
-                    <span style="font-size: 1.2rem; font-weight: bold; color: {% if analysis.malscore >= 7 %}#ef4444{% elif analysis.malscore >= 4 %}#f59e0b{% else %}#22c55e{% endif %};">
-                        {{ analysis.malscore }}
-                    </span>
-                </td>
-                <td>{{ analysis.signatures }}</td>
-                <td>
-                    <a href="{{ cape_url }}/analysis/{{ analysis.id }}/" target="_blank" class="btn btn-primary" style="padding: 0.25rem 0.75rem;">
-                        CAPE
-                    </a>
-                </td>
-            </tr>
+<!-- Suchleiste / Filter -->
+<div class="card" style="padding:1rem;margin-bottom:1.5rem;">
+  <form method="get" action="/cape" style="display:flex;flex-wrap:wrap;gap:0.75rem;align-items:flex-end;">
+    <div style="flex:1;min-width:200px;">
+      <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.3rem;">Suche (Dateiname, SHA256, Task-ID)</label>
+      <input type="text" name="q" value="{{ search }}" placeholder="z.B. MigrateFileSystem, 5562, a1b2c3..."
+             style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.5rem 0.75rem;border-radius:6px;font-size:0.9rem;">
+    </div>
+    <div style="min-width:120px;">
+      <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.3rem;">Min. Malscore</label>
+      <input type="number" name="min_score" value="{{ min_score }}" min="0" max="10" step="0.5"
+             style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.5rem 0.75rem;border-radius:6px;font-size:0.9rem;">
+    </div>
+    <div style="min-width:100px;">
+      <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.3rem;">Zeitraum</label>
+      <select name="days" style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.5rem 0.6rem;border-radius:6px;font-size:0.9rem;">
+        {% for d in [7, 14, 30, 60, 90, 180, 365] %}
+        <option value="{{ d }}" {% if d == days %}selected{% endif %}>{{ d }} Tage</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:100px;">
+      <label style="font-size:0.75rem;color:#64748b;display:block;margin-bottom:0.3rem;">Max. Treffer</label>
+      <select name="limit" style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:0.5rem 0.6rem;border-radius:6px;font-size:0.9rem;">
+        {% for l in [50, 100, 200, 500] %}
+        <option value="{{ l }}" {% if l == limit %}selected{% endif %}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <button type="submit" class="btn btn-primary" style="padding:0.5rem 1.25rem;">Suchen</button>
+      <a href="/cape" class="btn btn-secondary" style="padding:0.5rem 0.75rem;" title="Filter zuruecksetzen">&#10005;</a>
+    </div>
+  </form>
+  <div style="margin-top:0.75rem;display:flex;flex-wrap:wrap;gap:0.4rem;align-items:center;">
+    <span style="color:#475569;font-size:0.75rem;">Schnellfilter:</span>
+    <a href="/cape?min_score=6&days=30&limit=100" style="font-size:0.75rem;background:#7f1d1d;color:#fca5a5;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">Malscore &ge; 6</a>
+    <a href="/cape?min_score=4&days=30&limit=100" style="font-size:0.75rem;background:#78350f;color:#fcd34d;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">Malscore &ge; 4</a>
+    <a href="/cape?days=1&limit=100" style="font-size:0.75rem;background:#1e3a5f;color:#7dd3fc;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">Heute</a>
+    <a href="/cape?days=7&limit=100" style="font-size:0.75rem;background:#1e3a5f;color:#7dd3fc;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">7 Tage</a>
+    <a href="/cape?q=5562" style="font-size:0.75rem;background:#312e81;color:#a5b4fc;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">#5562 MigrateFS</a>
+    <a href="/cape?q=5572" style="font-size:0.75rem;background:#312e81;color:#a5b4fc;padding:0.15rem 0.6rem;border-radius:4px;text-decoration:none;">#5572 CloudConnector</a>
+  </div>
+</div>
+
+<!-- Analysen-Tabelle -->
+<div class="card" style="padding:0;overflow:hidden;">
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#0f172a;border-bottom:1px solid #334155;">
+          <th style="padding:0.75rem 1rem;text-align:left;font-size:0.8rem;color:#64748b;font-weight:600;white-space:nowrap;">Task-ID</th>
+          <th style="padding:0.75rem 1rem;text-align:left;font-size:0.8rem;color:#64748b;font-weight:600;white-space:nowrap;">Datum</th>
+          <th style="padding:0.75rem 1rem;text-align:left;font-size:0.8rem;color:#64748b;font-weight:600;">Dateiname</th>
+          <th style="padding:0.75rem 1rem;text-align:left;font-size:0.8rem;color:#64748b;font-weight:600;">SHA256</th>
+          <th style="padding:0.75rem 1rem;text-align:center;font-size:0.8rem;color:#64748b;font-weight:600;white-space:nowrap;">Malscore</th>
+          <th style="padding:0.75rem 1rem;text-align:center;font-size:0.8rem;color:#64748b;font-weight:600;white-space:nowrap;">Sigs</th>
+          <th style="padding:0.75rem 0.75rem;text-align:right;font-size:0.8rem;color:#64748b;font-weight:600;">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for analysis in analyses %}
+        {% set ms = analysis.malscore %}
+        {% set ms_color = '#ef4444' if ms >= 7 else ('#f59e0b' if ms >= 4 else ('#94a3b8' if ms == 0 else '#22c55e')) %}
+        {% set row_bg = 'background:rgba(239,68,68,0.04);' if ms >= 7 else ('background:rgba(245,158,11,0.03);' if ms >= 4 else '') %}
+        <tr style="border-bottom:1px solid #1e293b;{{ row_bg }}transition:background 0.15s;"
+            onmouseover="this.style.background='rgba(51,65,85,0.4)'" onmouseout="this.style.background='{{ 'rgba(239,68,68,0.06)' if ms >= 7 else ('rgba(245,158,11,0.04)' if ms >= 4 else 'transparent') }}'">
+          <td style="padding:0.65rem 1rem;white-space:nowrap;">
+            <a href="{{ cape_url }}/analysis/{{ analysis.id }}/" target="_blank"
+               style="color:#7dd3fc;font-weight:600;text-decoration:none;font-size:0.9rem;">#{{ analysis.id }}</a>
+            {% if analysis.get('llm_cached') %}
+            <span style="font-size:0.65rem;background:#1e3a5f;color:#7dd3fc;padding:0.1rem 0.4rem;border-radius:3px;margin-left:0.3rem;" title="KI-Analyse gecacht">AI</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.65rem 1rem;white-space:nowrap;color:#94a3b8;font-size:0.82rem;">
+            {{ analysis.date }}
+          </td>
+          <td style="padding:0.65rem 1rem;max-width:240px;">
+            <span title="{{ analysis.filename }}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.88rem;">
+              {{ analysis.filename }}
+            </span>
+          </td>
+          <td style="padding:0.65rem 1rem;">
+            <span title="{{ analysis.sha256_full }}"
+                  style="font-family:monospace;font-size:0.75rem;color:#475569;cursor:pointer;"
+                  onclick="navigator.clipboard.writeText('{{ analysis.sha256_full }}').then(()=>showCopyHint(this))">
+              {{ analysis.sha256 }}
+            </span>
+          </td>
+          <td style="padding:0.65rem 1rem;text-align:center;white-space:nowrap;">
+            {% if ms >= 7 %}
+            <span style="display:inline-block;background:#7f1d1d;color:#fca5a5;font-weight:bold;font-size:0.85rem;padding:0.2rem 0.6rem;border-radius:5px;min-width:3.5rem;text-align:center;">
+              {{ "%.1f"|format(ms) }}
+            </span>
+            {% elif ms >= 4 %}
+            <span style="display:inline-block;background:#78350f;color:#fcd34d;font-weight:bold;font-size:0.85rem;padding:0.2rem 0.6rem;border-radius:5px;min-width:3.5rem;text-align:center;">
+              {{ "%.1f"|format(ms) }}
+            </span>
+            {% elif ms > 0 %}
+            <span style="display:inline-block;background:#14532d;color:#86efac;font-weight:bold;font-size:0.85rem;padding:0.2rem 0.6rem;border-radius:5px;min-width:3.5rem;text-align:center;">
+              {{ "%.1f"|format(ms) }}
+            </span>
             {% else %}
-            <tr>
-                <td colspan="7" style="text-align: center; padding: 3rem; color: #64748b;">
-                    Keine CAPE-Analysen gefunden
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
+            <span style="display:inline-block;color:#475569;font-size:0.85rem;min-width:3.5rem;text-align:center;">0.0</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.65rem 1rem;text-align:center;">
+            {% if analysis.signature_names %}
+            <span title="{{ analysis.signature_names | join('\n') }}"
+                  style="cursor:help;color:#94a3b8;font-size:0.85rem;border-bottom:1px dotted #475569;">
+              {{ analysis.signatures }}
+            </span>
+            {% else %}
+            <span style="color:#475569;font-size:0.85rem;">{{ analysis.signatures }}</span>
+            {% endif %}
+          </td>
+          <td style="padding:0.65rem 0.75rem;text-align:right;white-space:nowrap;">
+            <button onclick="showAiAnalysis({{ analysis.id }})"
+                    style="background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;border:none;padding:0.3rem 0.65rem;border-radius:5px;cursor:pointer;font-size:0.78rem;margin-left:0.2rem;"
+                    title="Tiefenanalyse (AWS Bedrock)">&#129302; Analyse</button>
+            <button onclick="showForensicReport({{ analysis.id }})"
+                    style="background:linear-gradient(135deg,#ef4444,#b91c1c);color:white;border:none;padding:0.3rem 0.65rem;border-radius:5px;cursor:pointer;font-size:0.78rem;margin-left:0.2rem;"
+                    title="Forensic Report">&#128203; Forensic</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align:center;padding:3rem;color:#64748b;">
+            {% if search or min_score > 0 %}
+            Keine Analysen gefunden f&uuml;r diese Filterkriterien.<br>
+            <a href="/cape" style="color:#38bdf8;font-size:0.9rem;">Filter zur&uuml;cksetzen</a>
+            {% else %}
+            Keine abgeschlossenen Analysen in den letzten {{ days }} Tagen.<br>
+            <small style="color:#475569;">Nur Tasks mit Status "reported" werden angezeigt.</small>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
     </table>
+  </div>
+  {% if total > 0 %}
+  <div style="padding:0.75rem 1rem;border-top:1px solid #1e293b;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+    <span style="color:#475569;font-size:0.8rem;">{{ total }} Tasks angezeigt &middot; letzte {{ days }} Tage &middot; Limit {{ limit }}</span>
+    <div style="display:flex;gap:0.5rem;">
+      {% if total >= limit %}
+      <a href="/cape?days={{ days }}&limit={{ limit * 2 }}&q={{ search }}&min_score={{ min_score }}"
+         style="font-size:0.78rem;color:#38bdf8;text-decoration:none;padding:0.2rem 0.6rem;border:1px solid #1e3a5f;border-radius:4px;">
+        Mehr anzeigen ({{ limit * 2 }})
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Modal -->
+<div id="modal-overlay" onclick="closeModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;backdrop-filter:blur(4px);"></div>
+<div id="modal-box" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:#1e293b;border:1px solid #334155;border-radius:12px;
+    width:92%;max-width:880px;max-height:88vh;overflow-y:auto;z-index:1001;padding:2rem;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;position:sticky;top:-2rem;background:#1e293b;padding-top:0.5rem;z-index:2;">
+    <h2 id="modal-title" style="color:#f1f5f9;margin:0;font-size:1.2rem;">Analyse</h2>
+    <button onclick="closeModal()" style="background:#334155;border:none;color:#e2e8f0;padding:0.4rem 0.9rem;border-radius:6px;cursor:pointer;font-size:1rem;">&#10005;</button>
+  </div>
+  <div id="modal-content">
+    <div style="text-align:center;padding:3rem;color:#64748b;">
+      <div style="font-size:2.5rem;margin-bottom:1rem;animation:spin 1.5s linear infinite;display:inline-block;">&#8987;</div><br>
+      Lade Analyse...
+    </div>
+  </div>
 </div>
 
-<div class="card" style="margin-top: 1.5rem;">
-    <h2>Sample einreichen</h2>
-    <p style="color: #94a3b8; margin-top: 1rem;">
-        Samples können direkt über die CAPE Web-UI eingereicht werden:
-    </p>
-    <a href="{{ cape_url }}/submit/" target="_blank" class="btn btn-primary" style="margin-top: 1rem;">
-        Zur CAPE Submission
-    </a>
+<div id="copy-hint" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;background:#1e3a5f;color:#7dd3fc;padding:0.5rem 1rem;border-radius:6px;font-size:0.85rem;z-index:9999;">
+  SHA256 kopiert
 </div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+function openModal(title) {
+    document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-content').innerHTML =
+        '<div style="text-align:center;padding:3rem;color:#64748b;"><div style="font-size:2.5rem;margin-bottom:1rem;">&#8987;</div><br>Lade Analyse...</div>';
+    document.getElementById('modal-overlay').style.display = 'block';
+    document.getElementById('modal-box').style.display = 'block';
+    document.getElementById('modal-box').scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    document.getElementById('modal-overlay').style.display = 'none';
+    document.getElementById('modal-box').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+function setModalContent(html) { document.getElementById('modal-content').innerHTML = html; }
+
+function showCopyHint(el) {
+    var h = document.getElementById('copy-hint');
+    h.style.display = 'block';
+    setTimeout(function() { h.style.display = 'none'; }, 2000);
+}
+
+function mdToHtml(text) {
+    // Step 1: extract fenced code blocks before escaping anything else
+    var codeBlocks = [];
+    text = text.replace(/```[^\n]*\n([\s\S]*?)```/g, function(_, code) {
+        var idx = codeBlocks.length;
+        codeBlocks.push(code);
+        return '\x00CODE' + idx + '\x00';
+    });
+
+    // Step 2: HTML-escape the rest
+    text = text
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // Step 3: inline formatting
+    text = text
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="background:#0f172a;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85em;font-family:monospace;">$1</code>');
+
+    // Step 4: headings
+    text = text
+        .replace(/^#### (.+)$/gm, '<h4 style="color:#94a3b8;margin:1rem 0 0.4rem;font-size:0.95rem;">$1</h4>')
+        .replace(/^### (.+)$/gm, '<h3 style="color:#7dd3fc;margin:1.2rem 0 0.5rem;font-size:1rem;">$1</h3>')
+        .replace(/^## (.+)$/gm, '<h3 style="color:#38bdf8;margin:1.5rem 0 0.6rem;font-size:1.1rem;border-bottom:1px solid #1e3a5f;padding-bottom:0.3rem;">$1</h3>')
+        .replace(/^# (.+)$/gm, '<h2 style="color:#38bdf8;margin:1.5rem 0 0.75rem;font-size:1.3rem;">$1</h2>');
+
+    // Step 5: blockquotes
+    text = text.replace(/^&gt; (.+)$/gm,
+        '<blockquote style="border-left:3px solid #475569;margin:0.5rem 0;padding:0.4rem 0.75rem;color:#94a3b8;background:#0f172a;border-radius:0 4px 4px 0;">$1</blockquote>');
+
+    // Step 6: horizontal rules
+    text = text.replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid #334155;margin:1rem 0;">');
+
+    // Step 7: tables — convert | rows, skip separator rows, group into <table>
+    text = text.replace(/^\|(.+)\|$/gm, function(m, cells) {
+        var parts = cells.split('|').map(function(c) { return c.trim(); });
+        if (parts.every(function(p) { return /^[-: ]+$/.test(p); })) return '';
+        var tds = parts.map(function(t) {
+            return '<td style="padding:0.35rem 0.75rem;border:1px solid #334155;vertical-align:top;">' + t + '</td>';
+        });
+        return '<tr>' + tds.join('') + '</tr>';
+    });
+    // collapse blank lines left by separator rows, then group <tr> runs into tables
+    text = text.replace(/(<\/tr>)\n+(?=<tr>)/g, '$1\n');
+    text = text.replace(/((?:<tr>.*<\/tr>\n?)+)/g, function(block) {
+        var rows = block.match(/<tr>.*<\/tr>/g) || [];
+        if (!rows.length) return block;
+        var thead = '<thead style="background:#0f172a;">' +
+            rows[0].replace(/<td /g, '<th style="padding:0.35rem 0.75rem;border:1px solid #334155;text-align:left;font-weight:600;color:#94a3b8;" ').replace(/<\/td>/g, '</th>') +
+            '</thead>';
+        var tbody = rows.length > 1
+            ? '<tbody>' + rows.slice(1).join('') + '</tbody>'
+            : '';
+        return '<table style="border-collapse:collapse;width:100%;font-size:0.85rem;margin:0.75rem 0;">' + thead + tbody + '</table>';
+    });
+
+    // Step 8: lists
+    text = text
+        .replace(/^- (.+)$/gm, '<li style="margin:0.25rem 0 0.25rem 1.2rem;line-height:1.5;">$1</li>')
+        .replace(/^(\d+)\. (.+)$/gm, '<li style="margin:0.25rem 0 0.25rem 1.5rem;line-height:1.5;">$2</li>');
+    text = text.replace(/(<li[^>]*>[\s\S]*?<\/li>\n?)+/g, function(m) {
+        return '<ul style="margin:0.4rem 0;padding:0;">' + m + '</ul>';
+    });
+
+    // Step 9: paragraphs / line breaks
+    text = text
+        .replace(/\n\n/g, '</p><p style="margin:0.5rem 0">')
+        .replace(/\n/g, '<br>');
+
+    // Step 10: restore code blocks
+    text = text.replace(/\x00CODE(\d+)\x00/g, function(_, i) {
+        var code = codeBlocks[parseInt(i)]
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return '<pre style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:0.75rem 1rem;overflow-x:auto;font-size:0.82rem;font-family:monospace;line-height:1.5;margin:0.75rem 0;color:#e2e8f0;">' + code + '</pre>';
+    });
+
+    return text;
+}
+
+function showAiAnalysis(id, forceRefresh) {
+    openModal('&#129302; Tiefenanalyse Task #' + id);
+    var url = '/cape/' + id + '/llm' + (forceRefresh ? '?refresh=1' : '');
+    fetch(url, {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.error) {
+                setModalContent('<div style="color:#ef4444;padding:1rem;background:#1e1e2e;border-radius:8px;">Fehler: ' + d.error + '</div>');
+                return;
+            }
+            // Wenn ein konsolidierter Bericht vorliegt und nicht force-refresh: direkt anzeigen
+            if (!forceRefresh && d.consolidated_available) {
+                fetch('/cape/' + id + '/consolidated', {credentials: 'same-origin'})
+                    .then(function(r) { return r.json(); })
+                    .then(function(cd) {
+                        if (cd.cached && cd.llm_analysis) {
+                            showConsolidatedReport(id, cd);
+                        } else {
+                            _renderLlmAnalysis(id, d);
+                        }
+                    })
+                    .catch(function() { _renderLlmAnalysis(id, d); });
+                return;
+            }
+            _renderLlmAnalysis(id, d);
+        })
+        .catch(function(e) {
+            setModalContent('<div style="color:#ef4444;padding:1rem;">Netzwerkfehler: ' + e + '</div>');
+        });
+}
+
+function _renderLlmAnalysis(id, d) {
+            var ms = d.malscore || 0;
+            var msColor = ms >= 7 ? '#ef4444' : (ms >= 4 ? '#f59e0b' : (ms > 0 ? '#22c55e' : '#64748b'));
+            var msLabel = ms >= 7 ? 'HOCH' : (ms >= 4 ? 'MITTEL' : (ms > 0 ? 'GERING' : 'HARMLOS'));
+            var cachedBadge = d.cached
+                ? '<span style="background:#1e3a5f;color:#7dd3fc;font-size:0.72rem;padding:0.15rem 0.5rem;border-radius:3px;margin-left:0.5rem;">gecacht</span>'
+                : '<span style="background:#14532d;color:#86efac;font-size:0.72rem;padding:0.15rem 0.5rem;border-radius:3px;margin-left:0.5rem;">neu erzeugt</span>';
+            var genAt = (d.generated_at||'').substring(0,16).replace('T',' ');
+
+            var metaBar =
+                '<div style="display:flex;flex-wrap:wrap;gap:1rem;padding:0.75rem 1rem;background:#0f172a;border-radius:8px;margin-bottom:1.25rem;align-items:center;">' +
+                  '<div><div style="font-size:0.7rem;color:#64748b;margin-bottom:0.15rem;">Datei</div>' +
+                  '<strong style="font-size:0.88rem;">' + (d.filename||'?') + '</strong></div>' +
+                  '<div><div style="font-size:0.7rem;color:#64748b;margin-bottom:0.15rem;">Malscore</div>' +
+                  '<strong style="font-size:1.4rem;color:' + msColor + ';">' + ms.toFixed(1) + '</strong>' +
+                  '<span style="font-size:0.75rem;color:#475569;">/10 &bull; ' + msLabel + '</span></div>' +
+                  '<div><div style="font-size:0.7rem;color:#64748b;margin-bottom:0.15rem;">Signaturen</div>' +
+                  '<strong style="font-size:1.1rem;color:#a78bfa;">' + (d.signature_count||0) + '</strong></div>' +
+                  (d.sha256 ? '<div style="font-family:monospace;font-size:0.72rem;color:#475569;max-width:200px;overflow:hidden;text-overflow:ellipsis;" title="' + d.sha256 + '">' + d.sha256.substring(0,32) + '...</div>' : '') +
+                  '<div style="margin-left:auto;display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+                  '<span style="align-self:center;">' + genAt + cachedBadge + '</span>' +
+                  '<button onclick="showAiAnalysis(' + id + ',true)" style="background:#334155;color:#e2e8f0;border:none;padding:0.35rem 0.75rem;border-radius:5px;cursor:pointer;font-size:0.8rem;" title="Neue Analyse von Bedrock anfordern">&#x1F504; Neu</button>' +
+                  '<a href="/cape/' + id + '/pdf" target="_blank" style="background:#0ea5e9;color:#fff;border:none;padding:0.35rem 0.75rem;border-radius:5px;cursor:pointer;font-size:0.8rem;text-decoration:none;">&#x2B07; PDF</a>' +
+                  (d.child_task_ids && d.child_task_ids.length > 0
+                    ? '<button onclick="buildConsolidated(' + id + ',this)" id="consol-btn-' + id + '" style="background:#5b21b6;color:#fff;border:none;padding:0.35rem 0.85rem;border-radius:5px;cursor:pointer;font-size:0.8rem;" title="Konsolidierten Bericht mit allen Payload-Analysen erstellen">&#x1F4CB; Konsolidiert</button>'
+                    : '') +
+                  '</div>' +
+                '</div>';
+
+            var analysisHtml = '<div style="line-height:1.75;color:#e2e8f0;font-size:0.9rem;"><p>' + mdToHtml(d.llm_analysis||'') + '</p></div>';
+
+            // Payload-Block nachladen
+            setModalContent(metaBar + analysisHtml + '<div id="payload-block-' + id + '" style="margin-top:1.5rem;"><div style="color:#475569;font-size:0.82rem;">Lade Payloads...</div></div>');
+            loadPayloads(id);
+}
+
+function loadPayloads(id) {
+    fetch('/cape/' + id + '/payloads', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var el = document.getElementById('payload-block-' + id);
+            if (!el) return;
+            if (!d.payloads || d.payloads.length === 0) { el.innerHTML = ''; return; }
+
+            var analyzedCount = d.analyzed_count || 0;
+            var totalCount = d.count || 0;
+            var allAnalyzed = analyzedCount >= totalCount && totalCount > 0;
+
+            // Status-Leiste
+            var statusColor = allAnalyzed ? '#22c55e' : (analyzedCount > 0 ? '#f59e0b' : '#64748b');
+            var statusText = allAnalyzed
+                ? 'Alle ' + totalCount + ' Payloads analysiert — Konsolidierter Bericht verfügbar'
+                : analyzedCount + ' / ' + totalCount + ' Payloads analysiert'
+                  + (analyzedCount < totalCount ? ' — Analysen laufen noch oder per "Alle analysieren" starten' : '');
+
+            var rows = '';
+            d.payloads.forEach(function(p, i) {
+                var shortSha = p.sha256.substring(0, 20) + '...';
+                var ptype = (p.type||'').substring(0, 45);
+                var prio = i < 3
+                    ? '<span style="color:#ef4444;font-weight:700;">[!] Hoch</span>'
+                    : '<span style="color:#f59e0b;">[~] Mittel</span>';
+
+                // Child-Task-Status
+                var csIcon = '';
+                if (p.child_status === 'analyzed') {
+                    csIcon = ' <span style="color:#22c55e;font-size:0.7rem;" title="Tiefenanalyse abgeschlossen">&#10003;Analysiert</span>';
+                } else if (p.child_status === 'pending') {
+                    csIcon = ' <span style="color:#f59e0b;font-size:0.7rem;" title="CAPE-Task #' + p.child_task_id + ' läuft">&#8987;Task #' + p.child_task_id + '</span>';
+                }
+
+                // ILSpy-Status
+                var ilspyIcon = '';
+                if (p.is_dotnet) {
+                    if (p.ilspy_status === 'done') {
+                        ilspyIcon = ' <span style="color:#22c55e;font-size:0.7rem;">&#9654;ILSpy&#10003;</span>';
+                    } else {
+                        ilspyIcon = ' <span style="color:#64748b;font-size:0.7rem;">&#9654;.NET</span>';
+                    }
+                }
+
+                // Buttons
+                var capeBtnStyle = p.child_status === 'analyzed'
+                    ? 'background:#166534;color:#86efac;'
+                    : (p.child_status === 'pending'
+                        ? 'background:#78350f;color:#fde68a;'
+                        : 'background:#7c3aed;color:#fff;');
+                var capeBtnText = p.child_status === 'analyzed' ? 'CAPE&#10003;'
+                    : (p.child_task_id ? 'CAPE#' + p.child_task_id : 'CAPE');
+
+                var ilspyBtn = '';
+                if (p.is_dotnet) {
+                    var ilspyStyle = p.ilspy_status === 'done'
+                        ? 'background:#166534;color:#86efac;'
+                        : 'background:#0284c7;color:#fff;';
+                    var ilspyText = p.ilspy_status === 'done' ? 'ILSpy&#10003;' : 'ILSpy';
+                    ilspyBtn = '<button onclick="ilspyPayload(' + id + ',\'' + p.sha256 + '\',this)" ' +
+                        'style="' + ilspyStyle + 'border:none;padding:0.2rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.75rem;margin-right:0.25rem;">' +
+                        ilspyText + '</button>';
+                }
+
+                rows += '<tr style="border-bottom:1px solid #0f172a;">' +
+                    '<td style="padding:0.35rem 0.5rem;font-family:monospace;font-size:0.78rem;color:#fbbf24;" title="' + p.sha256 + '">' + shortSha + csIcon + ilspyIcon + '</td>' +
+                    '<td style="padding:0.35rem 0.5rem;font-size:0.78rem;color:#94a3b8;">' + ptype + '</td>' +
+                    '<td style="padding:0.35rem 0.5rem;">' + prio + '</td>' +
+                    '<td style="padding:0.35rem 0.5rem;white-space:nowrap;">' +
+                        '<button onclick="resubmitPayload(' + id + ',\'' + p.sha256 + '\',this)" ' +
+                            'style="' + capeBtnStyle + 'border:none;padding:0.2rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.75rem;margin-right:0.25rem;">' +
+                            capeBtnText +
+                        '</button>' +
+                        ilspyBtn +
+                        (p.is_dotnet && p.ilspy_status === 'done'
+                            ? '<button onclick="showIlspyResult(' + id + ',\'' + p.sha256 + '\')" ' +
+                              'style="background:#1e3a5f;color:#7dd3fc;border:none;padding:0.2rem 0.55rem;border-radius:4px;cursor:pointer;font-size:0.75rem;margin-right:0.25rem;">' +
+                              'Ergebnis</button>'
+                            : '') +
+                    '</td>' +
+                '</tr>';
+            });
+
+            var autoBtn = '<button onclick="autoAnalysePayloads(' + id + ',this)" ' +
+                'style="background:#b45309;color:#fff;border:none;padding:0.3rem 0.8rem;border-radius:5px;cursor:pointer;font-size:0.78rem;float:right;" ' +
+                'title="Alle Payloads automatisch per CAPE + ILSpy analysieren">&#9889; Alle analysieren</button>';
+
+            el.innerHTML =
+                '<div style="margin-top:1.5rem;background:#1e293b;border:1px solid #7c3aed;border-radius:8px;padding:1.25rem;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">' +
+                  '<div style="font-size:0.88rem;font-weight:700;color:#a78bfa;">WEITERFÜHRENDE ANALYSEN — ' + totalCount + ' Payloads</div>' +
+                  autoBtn +
+                '</div>' +
+                '<div style="font-size:0.78rem;margin-bottom:0.75rem;padding:0.4rem 0.75rem;border-radius:4px;background:#0f172a;color:' + statusColor + ';">' + statusText + '</div>' +
+                '<div style="overflow-x:auto;">' +
+                '<table style="width:100%;border-collapse:collapse;font-size:0.82rem;">' +
+                '<thead><tr style="border-bottom:1px solid #334155;">' +
+                '<th style="padding:0.3rem 0.5rem;color:#64748b;text-align:left;">SHA256 / Status</th>' +
+                '<th style="padding:0.3rem 0.5rem;color:#64748b;text-align:left;">Typ</th>' +
+                '<th style="padding:0.3rem 0.5rem;color:#64748b;text-align:left;">Priorität</th>' +
+                '<th style="padding:0.3rem 0.5rem;color:#64748b;text-align:left;">Aktionen</th>' +
+                '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+                (allAnalyzed
+                    ? '<div style="margin-top:0.75rem;padding:0.5rem 0.75rem;background:#14532d;border-radius:4px;color:#86efac;font-size:0.78rem;">' +
+                      '&#10003; Alle Payload-Analysen abgeschlossen — "Konsolidiert"-Button oben für Gesamtbericht verwenden.</div>'
+                    : '') +
+                '</div>';
+
+            // Status alle 15s auto-aktualisieren wenn noch Analysen laufen
+            if (!allAnalyzed && analyzedCount < totalCount) {
+                setTimeout(function() {
+                    if (document.getElementById('payload-block-' + id)) {
+                        loadPayloads(id);
+                    }
+                }, 15000);
+            }
+        })
+        .catch(function() {});
+}
+
+function resubmitPayload(analysisId, sha256, btn) {
+    btn.disabled = true; btn.textContent = '...';
+    fetch('/cape/' + analysisId + '/resubmit-payload', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sha256: sha256})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.error) { btn.textContent = 'Fehler'; btn.style.background='#dc2626'; return; }
+        btn.textContent = '#' + d.task_id;
+        btn.style.background = '#16a34a';
+        btn.onclick = function() { window.open('https://cape.thesoc.de/analysis/' + d.task_id + '/', '_blank'); };
+    })
+    .catch(function() { btn.textContent = 'Fehler'; btn.style.background='#dc2626'; });
+}
+
+function ghidraPayload(analysisId, sha256, btn) {
+    btn.disabled = true; btn.textContent = 'läuft...';
+    fetch('/cape/' + analysisId + '/ghidra-payload', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sha256: sha256})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.error) { btn.textContent = 'Fehler'; btn.style.background='#dc2626'; return; }
+        btn.textContent = 'gestartet';
+        btn.style.background = '#16a34a';
+        btn.disabled = false;
+    })
+    .catch(function() { btn.textContent = 'Fehler'; btn.style.background='#dc2626'; });
+}
+
+function ilspyPayload(analysisId, sha256, btn) {
+    btn.disabled = true; btn.innerHTML = 'läuft&#8230;';
+    btn.style.background = '#0369a1'; btn.style.color = '#fff';
+    fetch('/cape/' + analysisId + '/ilspy-payload', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sha256: sha256})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.error) { btn.innerHTML = 'Fehler'; btn.style.background='#dc2626'; btn.disabled=false; return; }
+        if (d.cached) { btn.innerHTML = 'ILSpy&#10003;'; btn.style.background='#166534'; btn.style.color='#86efac'; btn.disabled=false; return; }
+        // Polling für Ergebnis
+        btn.innerHTML = 'läuft&#8230;';
+        var poll = setInterval(function() {
+            fetch('/cape/' + analysisId + '/ilspy-result/' + sha256.substring(0,16), {credentials:'same-origin'})
+            .then(function(r){return r.json();})
+            .then(function(res){
+                if (res.ready) {
+                    clearInterval(poll);
+                    btn.innerHTML = 'ILSpy&#10003;'; btn.style.background='#166834'; btn.style.color='#86efac'; btn.disabled=false;
+                    loadPayloads(analysisId);
+                }
+            }).catch(function(){});
+        }, 5000);
+        // Stop polling nach 3 Min
+        setTimeout(function(){ clearInterval(poll); }, 180000);
+    })
+    .catch(function() { btn.innerHTML = 'Fehler'; btn.style.background='#dc2626'; btn.disabled=false; });
+}
+
+function showIlspyResult(analysisId, sha256) {
+    fetch('/cape/' + analysisId + '/ilspy-result/' + sha256.substring(0,16), {credentials:'same-origin'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+        if (!d.ready || d.error) {
+            setModalContent('<div style="color:#ef4444;padding:1rem;">ILSpy-Ergebnis nicht verfügbar: ' + (d.error||'Unbekannt') + '</div>');
+            return;
+        }
+        var aiHtml = d.ai_summary
+            ? '<div style="margin-top:1rem;padding:1rem;background:#0f172a;border:1px solid #334155;border-radius:6px;"><div style="font-weight:700;color:#a78bfa;margin-bottom:0.5rem;">KI-Analyse:</div>' +
+              '<div style="color:#e2e8f0;font-size:0.88rem;line-height:1.7;">' + mdToHtml(d.ai_summary) + '</div></div>'
+            : '';
+        var codeHtml = d.code
+            ? '<details style="margin-top:0.75rem;"><summary style="cursor:pointer;color:#64748b;font-size:0.8rem;">Dekompilierter Code (' + d.lines + ' Zeilen)</summary>' +
+              '<pre style="background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:6px;overflow-x:auto;font-size:0.78rem;max-height:400px;overflow-y:auto;margin-top:0.5rem;">' +
+              d.code.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').substring(0,15000) + '</pre></details>'
+            : '';
+        openModal('&#9654; ILSpy Ergebnis — ' + sha256.substring(0,20) + '...');
+        setModalContent(aiHtml + codeHtml);
+    })
+    .catch(function(e){ setModalContent('<div style="color:#ef4444;padding:1rem;">Netzwerkfehler: ' + e + '</div>'); });
+}
+
+function autoAnalysePayloads(analysisId, btn) {
+    btn.disabled = true; btn.innerHTML = '&#9889; Starte&#8230;'; btn.style.background = '#92400e';
+    // Schritt 1: CAPE Resubmit + ILSpy starten
+    fetch('/cape/' + analysisId + '/auto-analyse-payloads', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: '{}'
+    })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        if (d.error) { btn.innerHTML = 'Fehler: ' + d.error.substring(0,30); btn.style.background='#dc2626'; btn.disabled=false; return; }
+        var msg = d.total + ' Payloads';
+        if (d.llm_queue) msg += ', ' + d.llm_queue + ' LLM-Analysen gestartet';
+        btn.innerHTML = '&#9889; ' + msg;
+        btn.style.background = '#166534'; btn.style.color = '#86efac';
+        // Schritt 2: auch LLM für bestehende Child-Tasks triggern
+        fetch('/cape/' + analysisId + '/trigger-child-llm', {
+            method: 'POST', credentials: 'same-origin',
+            headers: {'Content-Type': 'application/json'}, body: '{}'
+        }).then(function(r){return r.json();}).then(function(td){
+            if (td.queued > 0) {
+                btn.innerHTML += ' + ' + td.queued + ' LLM queued';
+                startChildStatusPolling(analysisId);
+            }
+        }).catch(function(){});
+        setTimeout(function(){ loadPayloads(analysisId); }, 8000);
+    })
+    .catch(function(e){ btn.innerHTML = 'Fehler'; btn.style.background='#dc2626'; btn.disabled=false; });
+}
+
+var _childPollTimer = {};
+function startChildStatusPolling(analysisId) {
+    if (_childPollTimer[analysisId]) return; // already polling
+    _childPollTimer[analysisId] = setInterval(function() {
+        fetch('/cape/' + analysisId + '/child-status', {credentials: 'same-origin'})
+        .then(function(r){return r.json();})
+        .then(function(d){
+            // Update modal title with progress
+            var titleEl = document.getElementById('modal-title');
+            if (titleEl) {
+                var base = titleEl.textContent.replace(/ \[\d+\/\d+\]$/, '');
+                titleEl.textContent = base + ' [' + d.analyzed_count + '/' + d.total + ']';
+            }
+            // Reload payload table
+            if (document.getElementById('payload-block-' + analysisId)) {
+                loadPayloads(analysisId);
+            }
+            if (d.all_done) {
+                clearInterval(_childPollTimer[analysisId]);
+                delete _childPollTimer[analysisId];
+                // Konsolidiert-Button aktivieren
+                var consolBtn = document.getElementById('consol-btn-' + analysisId);
+                if (consolBtn) {
+                    consolBtn.style.background = '#16a34a';
+                    consolBtn.innerHTML = '&#x1F4CB; Konsolidiert (' + d.analyzed_count + ')';
+                }
+            }
+        }).catch(function(){});
+    }, 20000);
+    // Stop nach 60 Min
+    setTimeout(function(){
+        clearInterval(_childPollTimer[analysisId]);
+        delete _childPollTimer[analysisId];
+    }, 3600000);
+}
+
+function buildConsolidated(analysisId, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Erstelle...';
+    btn.style.background = '#7c3aed';
+
+    function onConsolidatedDone(d) {
+        if (d.error) {
+            var msg = d.child_count === 0
+                ? 'Zuerst Payloads per CAPE-Button analysieren, dann Konsolidieren.'
+                : 'Fehler: ' + d.error.substring(0, 60);
+            btn.textContent = msg.length > 50 ? msg.substring(0,50)+'...' : msg;
+            btn.style.background = '#dc2626';
+            btn.style.fontSize = '0.72rem';
+            btn.disabled = false;
+            return;
+        }
+        // Konsolidierter Bericht fertig — Buttons anzeigen
+        var parent = btn.parentNode;
+        btn.remove();
+        var pdfBtn = document.createElement('a');
+        pdfBtn.href = '/cape/' + analysisId + '/consolidated/pdf';
+        pdfBtn.target = '_blank';
+        pdfBtn.textContent = 'Konsolidierter PDF (' + (d.child_analyses ? d.child_analyses.length : 0) + ' Payloads)';
+        pdfBtn.style.cssText = 'background:#5b21b6;color:#fff;border:none;padding:0.35rem 0.85rem;border-radius:5px;font-size:0.8rem;text-decoration:none;display:inline-block;';
+        parent.appendChild(pdfBtn);
+        showConsolidatedReport(analysisId, d);
+    }
+
+    function pollConsolidated(dots) {
+        dots = ((dots || 0) % 3) + 1;
+        btn.textContent = 'Konsolidiere' + '.'.repeat(dots);
+        fetch('/cape/' + analysisId + '/consolidated', {credentials: 'same-origin'})
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'running') {
+                    setTimeout(function() { pollConsolidated(dots); }, 5000);
+                } else if (d.status === 'not_started') {
+                    // Wurde durch cache-invalidation zurückgesetzt — nochmal starten
+                    startConsolidated();
+                } else {
+                    onConsolidatedDone(d);
+                }
+            })
+            .catch(function() {
+                setTimeout(function() { pollConsolidated(dots); }, 8000);
+            });
+    }
+
+    function startConsolidated() {
+        fetch('/cape/' + analysisId + '/consolidated', {method: 'POST', credentials: 'same-origin'})
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.error) { onConsolidatedDone(d); return; }
+                // status running — pollen
+                setTimeout(function() { pollConsolidated(0); }, 5000);
+            })
+            .catch(function(e) {
+                btn.textContent = 'Netzwerkfehler';
+                btn.style.background = '#dc2626';
+                btn.disabled = false;
+            });
+    }
+
+    // Erst GET: wenn Cache aktuell vorhanden, direkt anzeigen; sonst POST starten
+    fetch('/cape/' + analysisId + '/consolidated', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.cached || (d.analysis && !d.status)) {
+                onConsolidatedDone(d);
+            } else {
+                startConsolidated();
+            }
+        })
+        .catch(function() { startConsolidated(); });
+}
+
+function showConsolidatedReport(analysisId, d) {
+    openModal('&#x1F4CB; Konsolidierter Bericht Task #' + analysisId);
+    var children = d.child_analyses || [];
+    var ms = d.malscore || 0;
+    var msColor = ms >= 7 ? '#ef4444' : (ms >= 4 ? '#f59e0b' : (ms > 0 ? '#22c55e' : '#64748b'));
+    var genAt = (d.generated_at||'').substring(0,16).replace('T',' ');
+
+    var metaBar =
+        '<div style="display:flex;flex-wrap:wrap;gap:1rem;padding:0.75rem 1rem;background:#0f172a;border-radius:8px;margin-bottom:1.25rem;align-items:center;">' +
+        '<div><div style="font-size:0.7rem;color:#64748b;">Datei</div><strong style="font-size:0.88rem;">' + (d.filename||'?') + '</strong></div>' +
+        '<div><div style="font-size:0.7rem;color:#64748b;">Malscore</div><strong style="font-size:1.4rem;color:' + msColor + ';">' + ms.toFixed(1) + '</strong><span style="font-size:0.75rem;color:#475569;">/10</span></div>' +
+        '<div><div style="font-size:0.7rem;color:#64748b;">Payloads analysiert</div><strong style="font-size:1.1rem;color:#a78bfa;">' + children.length + '</strong></div>' +
+        '<div style="margin-left:auto;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">' +
+        '<span style="font-size:0.72rem;color:#475569;">' + genAt + '</span>' +
+        '<span style="background:#5b21b6;color:#e9d5ff;font-size:0.72rem;padding:0.15rem 0.5rem;border-radius:3px;">KONSOLIDIERT</span>' +
+        '<button onclick="buildConsolidated(' + analysisId + ',this)" style="background:#334155;color:#e2e8f0;border:none;padding:0.35rem 0.75rem;border-radius:5px;cursor:pointer;font-size:0.8rem;">&#x1F504; Neu</button>' +
+        '<a href="/cape/' + analysisId + '/consolidated/pdf" target="_blank" style="background:#0ea5e9;color:#fff;padding:0.35rem 0.75rem;border-radius:5px;font-size:0.8rem;text-decoration:none;">&#x2B07; PDF</a>' +
+        '</div></div>';
+
+    // Konsolidierter LLM-Text (Sektion 10 = Gesamtbewertung)
+    var consolidatedText = '<div style="line-height:1.75;color:#e2e8f0;font-size:0.9rem;">' + mdToHtml(d.llm_analysis||'') + '</div>';
+
+    // Einzelne Kindberichte — ausklappbar
+    var childHtml = '';
+    if (children.length > 0) {
+        childHtml = '<div style="margin-top:2rem;border-top:1px solid #334155;padding-top:1.5rem;">' +
+            '<h3 style="color:#a78bfa;font-size:1rem;margin-bottom:1rem;">&#x1F50D; Einzelanalysen der ' + children.length + ' Payloads</h3>';
+        children.forEach(function(c, i) {
+            var cid = c.id;
+            var cfn = (c.filename||'').substring(0,20) + (c.filename && c.filename.length > 20 ? '...' : '');
+            var cms = (c.malscore||0).toFixed(1);
+            var cmsColor = c.malscore >= 7 ? '#ef4444' : (c.malscore >= 4 ? '#f59e0b' : '#22c55e');
+            childHtml +=
+                '<div style="margin-bottom:0.75rem;border:1px solid #1e293b;border-radius:6px;">' +
+                '<div onclick="toggleChildReport(' + cid + ')" style="display:flex;justify-content:space-between;align-items:center;padding:0.6rem 1rem;cursor:pointer;background:#0f172a;border-radius:6px;">' +
+                '<span style="font-family:monospace;font-size:0.82rem;color:#cbd5e1;">Payload ' + (i+1) + ': Task #' + cid + ' &mdash; ' + cfn + '</span>' +
+                '<span style="display:flex;gap:0.75rem;align-items:center;">' +
+                '<strong style="color:' + cmsColor + ';">' + cms + '/10</strong>' +
+                '<span style="color:#475569;font-size:1rem;">&#x25BC;</span>' +
+                '</span></div>' +
+                '<div id="child-report-' + cid + '" style="display:none;padding:1rem;background:#0c1322;border-radius:0 0 6px 6px;">' +
+                '<div style="color:#475569;font-size:0.82rem;">Lade...</div>' +
+                '</div></div>';
+        });
+        childHtml += '</div>';
+    }
+
+    setModalContent(metaBar + consolidatedText + childHtml);
+}
+
+function toggleChildReport(childId) {
+    var el = document.getElementById('child-report-' + childId);
+    if (!el) return;
+    if (el.style.display === 'none') {
+        el.style.display = 'block';
+        if (el.dataset.loaded) return;
+        el.dataset.loaded = '1';
+        fetch('/cape/' + childId + '/llm', {credentials: 'same-origin'})
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.error) {
+                    el.innerHTML = '<div style="color:#ef4444;">Fehler: ' + d.error + '</div>';
+                    return;
+                }
+                var fn = d.filename || d.sha256 || 'Payload';
+                var ms = (d.malscore||0).toFixed(1);
+                var msColor = d.malscore >= 7 ? '#ef4444' : (d.malscore >= 4 ? '#f59e0b' : '#22c55e');
+                el.innerHTML =
+                    '<div style="margin-bottom:0.75rem;display:flex;gap:1rem;flex-wrap:wrap;">' +
+                    '<span style="font-size:0.8rem;color:#64748b;">Datei: <strong style="color:#e2e8f0;">' + fn + '</strong></span>' +
+                    '<span style="font-size:0.8rem;color:#64748b;">Score: <strong style="color:' + msColor + ';">' + ms + '/10</strong></span>' +
+                    '<span style="font-size:0.8rem;color:#64748b;">Signaturen: <strong style="color:#a78bfa;">' + (d.signature_count||0) + '</strong></span>' +
+                    '</div>' +
+                    '<div style="line-height:1.7;color:#cbd5e1;font-size:0.85rem;">' + mdToHtml(d.llm_analysis||'(keine Analyse)') + '</div>';
+            })
+            .catch(function() {
+                el.innerHTML = '<div style="color:#ef4444;">Netzwerkfehler</div>';
+            });
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+function showForensicReport(id) {
+    openModal('📋 Forensic Report #' + id);
+    fetch('/cape/' + id + '/forensic-report', {credentials: 'same-origin'})
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            if (d.error) {
+                setModalContent('<div style="color:#ef4444;padding:1rem;">Fehler: ' + d.error + '</div>');
+                return;
+            }
+            var es = d.executive_summary || {};
+            var ec = d.evidence_chain || {};
+            var iocs = (d.indicators_of_compromise||{}).network_iocs || [];
+            var hashes = ec.sample_hashes || {};
+            var tlColor = {CRITICAL:'#ef4444',HIGH:'#f97316',MEDIUM:'#f59e0b',LOW:'#22c55e'}[es.threat_level] || '#64748b';
+            var html =
+                '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.75rem;margin-bottom:1.25rem;">' +
+                  box('Bedrohungsstufe','<span style="font-size:1.6rem;font-weight:bold;color:'+tlColor+'">'+(es.threat_level||'-')+'</span>') +
+                  box('Verdict','<span style="color:'+tlColor+'">'+(es.verdict||'-')+'</span><br><small style="color:#64748b">Malscore: '+(es.malscore||0)+'</small>') +
+                  box('Datei',(es.file_name||'-')+'<br><small style="color:#64748b">'+(es.file_type||'-')+'</small>') +
+                  box('Signaturen','<span style="font-size:1.5rem;font-weight:bold;color:#a78bfa">'+(es.signature_hits||0)+'</span>') +
+                '</div>' +
+                '<div style="background:#0f172a;border-radius:8px;padding:1rem;margin-bottom:1rem;">' +
+                  '<div style="font-size:0.75rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Hashes</div>' +
+                  '<table style="font-family:monospace;font-size:0.78rem;width:100%">' +
+                  Object.entries(hashes).map(function(kv){return '<tr><td style="color:#64748b;width:55px;padding:0.2rem 0">'+kv[0].toUpperCase()+'</td><td style="word-break:break-all">'+kv[1]+'</td></tr>';}).join('') +
+                  '</table></div>';
+            if (iocs.length) html += '<div style="background:#0f172a;border-radius:8px;padding:1rem;margin-bottom:1rem;">' +
+                  '<div style="font-size:0.75rem;color:#64748b;margin-bottom:0.5rem;text-transform:uppercase;">Netzwerk-IOCs ('+iocs.length+')</div>' +
+                  '<div style="font-family:monospace;font-size:0.78rem;max-height:180px;overflow-y:auto;">' +
+                  iocs.map(function(i){return '<div style="padding:0.18rem 0;color:#f87171">'+i+'</div>';}).join('')+'</div></div>';
+            html += '<div style="margin-top:1rem;text-align:right;"><button onclick="downloadForensicJson('+id+')" style="background:#334155;color:#e2e8f0;border:none;padding:0.4rem 0.9rem;border-radius:5px;cursor:pointer;font-size:0.82rem;">JSON exportieren</button></div>';
+            setModalContent(html);
+            window._fdata = window._fdata || {};
+            window._fdata[id] = d;
+        })
+        .catch(function(e) {
+            setModalContent('<div style="color:#ef4444;padding:1rem;">Netzwerkfehler: '+e+'</div>');
+        });
+}
+
+function box(label, content) {
+    return '<div style="background:#0f172a;border-radius:8px;padding:0.75rem 1rem;">' +
+           '<div style="font-size:0.7rem;color:#64748b;text-transform:uppercase;margin-bottom:0.4rem;">'+label+'</div>'+
+           content+'</div>';
+}
+
+function downloadForensicJson(id) {
+    var d=(window._fdata||{})[id]; if(!d) return;
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));
+    a.download='forensic-report-cape-'+id+'.json'; a.click();
+}
+</script>
 {% endblock %}

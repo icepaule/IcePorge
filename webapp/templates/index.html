@@ -4,11 +4,42 @@
 {% block content %}
 <h1>Security Dashboard</h1>
 
-<!-- Stats Cards -->
+<!-- CAPE Stats -->
+{% set c = stats.cape %}
+<h2 style="font-size:0.85rem;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;">CAPE Sandbox &mdash; letzte 30 Tage</h2>
+<div class="stats-grid" style="margin-bottom:2rem;">
+    <div class="stat-card stat-total">
+        <div class="stat-value">{{ c.total_30d }}</div>
+        <div class="stat-label">Analysen gesamt</div>
+    </div>
+    <div class="stat-card stat-malicious">
+        <div class="stat-value">{{ c.high }}</div>
+        <div class="stat-label">Hochriskant (&ge;7)</div>
+    </div>
+    <div class="stat-card stat-suspicious">
+        <div class="stat-value">{{ c.medium }}</div>
+        <div class="stat-label">Verdächtig (4–6)</div>
+    </div>
+    <div class="stat-card stat-clean">
+        <div class="stat-value">{{ c.low }}</div>
+        <div class="stat-label">Unauffällig (&lt;4)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color:#38bdf8;">{{ c.total_7d }}</div>
+        <div class="stat-label">Analysen (7 Tage)</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value" style="color:#a78bfa;">{{ "%.1f"|format(c.avg_sigs) }}</div>
+        <div class="stat-label">Ø Signaturen</div>
+    </div>
+</div>
+
+<!-- Phishing Stats -->
+<h2 style="font-size:0.85rem;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;">Phishing Reports &mdash; letzte 30 Tage</h2>
 <div class="stats-grid">
     <div class="stat-card stat-total">
         <div class="stat-value">{{ stats.total_reports }}</div>
-        <div class="stat-label">Phishing Reports (30 Tage)</div>
+        <div class="stat-label">Reports gesamt</div>
     </div>
     <div class="stat-card stat-malicious">
         <div class="stat-value">{{ stats.malicious }}</div>
@@ -23,11 +54,11 @@
         <div class="stat-label">Clean</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" style="color: #a78bfa;">{{ "%.0f"|format(stats.avg_score) }}</div>
+        <div class="stat-value" style="color:#a78bfa;">{{ "%.0f"|format(stats.avg_score) }}</div>
         <div class="stat-label">Durchschn. Score</div>
     </div>
     <div class="stat-card">
-        <div class="stat-value" style="color: #2dd4bf;">{{ stats.enhanced_count }}</div>
+        <div class="stat-value" style="color:#2dd4bf;">{{ stats.enhanced_count }}</div>
         <div class="stat-label">Enhanced Reports</div>
     </div>
 </div>
@@ -89,21 +120,38 @@
                 <span class="status-dot status-{{ status.overall_status }}"></span>
             </div>
             <table>
-                {% for component, state in status.components.items() %}
-                <tr>
-                    <td>{{ component.replace('_', ' ').title() }}</td>
-                    <td style="text-align: right;">
-                        <span class="status-dot status-{{ state }}"></span>
-                        {{ state }}
-                    </td>
-                </tr>
-                {% endfor %}
+                {% set comp = status.components %}
+                {% macro svc_dot(val) %}
+                    {% if val == 'active' %}<span class="status-dot status-ok"></span> active
+                    {% elif val is mapping %}
+                        {% set first = val.values()|list|first %}
+                        {% if first == 'active' %}<span class="status-dot status-ok"></span> active
+                        {% else %}<span class="status-dot status-warning"></span> {{ first }}{% endif %}
+                    {% elif val is number %}
+                        {% if val > 0 %}<span class="status-dot status-ok"></span> {{ val }} running
+                        {% else %}<span class="status-dot status-critical"></span> 0{% endif %}
+                    {% else %}<span class="status-dot status-warning"></span> {{ val }}{% endif %}
+                {% endmacro %}
+                {% if comp.cape %}
+                <tr><td>CAPE Sandbox</td><td style="text-align:right;">{{ svc_dot(comp.cape.status) }}</td></tr>
+                {% endif %}
+                {% if comp.mwdb %}
+                <tr><td>MWDB Stack</td><td style="text-align:right;">{{ svc_dot(comp.mwdb.containers_running) }}</td></tr>
+                {% endif %}
+                {% if comp.iceporge %}
+                <tr><td>IcePorge Web</td><td style="text-align:right;">{{ svc_dot(comp.iceporge.web) }}</td></tr>
+                {% endif %}
+                {% if comp.infrastructure %}
+                <tr><td>Nginx</td><td style="text-align:right;">{{ svc_dot(comp.infrastructure.nginx) }}</td></tr>
+                {% endif %}
             </table>
-            {% if status.disk_usage %}
+            {% if status.disk %}
             <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #334155;">
                 <small style="color: #64748b;">
-                    Speicher: {{ status.disk_usage.cape_data_avail_gb }} GB frei ({{ status.disk_usage.cape_data_percent }}% belegt)<br>
-                    Analysen: {{ status.analyses_count }}
+                    Speicher: {{ status.disk.free }} frei ({{ status.disk.percent_used }}% belegt)<br>
+                    {% if status.cape_stats %}
+                    Analysen: {{ status.cape_stats.reported }} reported / {{ status.cape_stats.total_tasks }} gesamt
+                    {% endif %}
                 </small>
             </div>
             {% endif %}

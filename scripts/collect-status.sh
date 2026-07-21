@@ -1,124 +1,123 @@
 #!/bin/bash
-# =============================================================================
-# IcePorge Status Collector
-# Extracts live status data from Cockpit data sources and syncs to webserver
-#
-# Usage: /opt/iceporge/scripts/collect-status.sh
-# Cron:  */5 * * * * /opt/iceporge/scripts/collect-status.sh
-# =============================================================================
+# IcePorge Status Collector - live data für das Dashboard
+# Cron: */5 * * * * /opt/iceporge/scripts/collect-status.sh
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -euo pipefail
+
 STATUS_DIR="/opt/iceporge/status"
-WEBSERVER="mpauli@46.4.142.234"
-WEBSERVER_PATH="/var/www/mpauli.de/iceporge-status"
+LOCKFILE="$STATUS_DIR/collect.lock"
+LOGFILE="$STATUS_DIR/collect.log"
+CAPE_DB="/opt/CAPEv2/db/cuckoo.db"
+CAPE_FEED_DB="/opt/iceporge/components/IcePorge-CAPE-Feed/work/state.db"
 
 mkdir -p "$STATUS_DIR"
 
+# Parallelausführung verhindern
+exec 200>"$LOCKFILE"
+flock -n 200 || exit 0
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOGFILE"; }
+log "Starting status collection"
+
+# --- CAPE Stats via SQLite ---
+if [ -f "$CAPE_DB" ]; then
+    CAPE_TOTAL=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks;" 2>/dev/null || echo 0)
+    CAPE_REPORTED=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE status='reported';" 2>/dev/null || echo 0)
+    CAPE_PENDING=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE status='pending';" 2>/dev/null || echo 0)
+    CAPE_RUNNING=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE status='running';" 2>/dev/null || echo 0)
+    CAPE_FAILED=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE status IN ('failed_reporting','failed_analysis','failed_processing');" 2>/dev/null || echo 0)
+    CAPE_ADDED_24H=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE added_on >= datetime('now','-24 hours');" 2>/dev/null || echo 0)
+    CAPE_COMPLETED_24H=$(sqlite3 "$CAPE_DB" "SELECT COUNT(*) FROM tasks WHERE status='reported' AND completed_on >= datetime('now','-24 hours');" 2>/dev/null || echo 0)
+else
+    CAPE_TOTAL=0; CAPE_REPORTED=0; CAPE_PENDING=0; CAPE_RUNNING=0
+    CAPE_FAILED=0; CAPE_ADDED_24H=0; CAPE_COMPLETED_24H=0
+fi
+
+# --- Feeder Stats via SQLite (CAPE-Feed) ---
+if [ -f "$CAPE_FEED_DB" ]; then
+    FEED_TOTAL=$(sqlite3 "$CAPE_FEED_DB" "SELECT COUNT(*) FROM seen;" 2>/dev/null || echo 0)
+    FEED_TODAY=$(sqlite3 "$CAPE_FEED_DB" "SELECT COUNT(*) FROM seen WHERE date(last_seen)=date('now');" 2>/dev/null || echo 0)
+    FEED_7D=$(sqlite3 "$CAPE_FEED_DB" "SELECT COUNT(*) FROM seen WHERE last_seen >= datetime('now','-7 days');" 2>/dev/null || echo 0)
+else
+    FEED_TOTAL=0; FEED_TODAY=0; FEED_7D=0
+fi
+
+# --- MWDB Docker Container ---
+MWDB_RUNNING=$(docker ps --filter "name=mwdb" --format "{{.Names}}" 2>/dev/null | wc -l)
+KARTON_RUNNING=$(docker ps --filter "name=karton" --format "{{.Names}}" 2>/dev/null | wc -l)
+
+# --- Disk Usage ---
+DISK_PCT=$(df /opt/CAPEv2/storage 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%' || echo 0)
+DISK_USED=$(df -h /opt/CAPEv2/storage 2>/dev/null | tail -1 | awk '{print $3}' || echo "?")
+DISK_TOTAL=$(df -h /opt/CAPEv2/storage 2>/dev/null | tail -1 | awk '{print $2}' || echo "?")
+DISK_FREE=$(df -h /opt/CAPEv2/storage 2>/dev/null | tail -1 | awk '{print $4}' || echo "?")
+
+# --- Service Status ---
+svc_status() { systemctl is-active "$1" 2>/dev/null || echo "inactive"; }
+CAPE_SVC=$(svc_status cape)
+CAPE_WEB=$(svc_status cape-web)
+CAPE_PROC=$(svc_status cape-processor)
+ICEPORGE_WEB=$(svc_status iceporge-web)
+MONGOD=$(svc_status mongod)
+NGINX=$(svc_status nginx)
+SURICATA=$(svc_status suricata)
+
+# --- Malware Stats aus Reports ---
+STORAGE="/opt/CAPEv2/storage/analyses"
+REPORTS_WITH_SIGS=$(find "$STORAGE" -name "report.json" -newer "$STATUS_DIR/health.json" 2>/dev/null | wc -l || echo 0)
+
+# Overall Status bestimmen
+OVERALL="ok"
+[ "$CAPE_SVC" != "active" ] && OVERALL="degraded"
+[ "$MWDB_RUNNING" -lt 3 ] && OVERALL="degraded"
+[ "$DISK_PCT" -gt 90 ] && OVERALL="critical"
+
 TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-echo "[$TIMESTAMP] Starting status collection..."
 
-# =============================================================================
-# Data Collection - Same sources as Cockpit dashboards
-# =============================================================================
-
-# --- Feeder Statistics (from SQLite) ---
-FEEDER_DB="/opt/mwdb-feeder/work/state.db"
-
-if [ -f "$FEEDER_DB" ]; then
-    TOTAL_PROCESSED=$(sqlite3 "$FEEDER_DB" 'SELECT COUNT(*) FROM processed;' 2>/dev/null || echo "0")
-    TODAY_UPLOADED=$(sqlite3 "$FEEDER_DB" "SELECT COUNT(*) FROM processed WHERE date(processed_at)=date('now') AND mwdb_uploaded=1;" 2>/dev/null || echo "0")
-    URLHAUS=$(sqlite3 "$FEEDER_DB" "SELECT COUNT(*) FROM processed WHERE source='urlhaus' AND mwdb_uploaded=1;" 2>/dev/null || echo "0")
-    HYBRID_ANALYSIS=$(sqlite3 "$FEEDER_DB" "SELECT COUNT(*) FROM processed WHERE source='hybrid_analysis' AND mwdb_uploaded=1;" 2>/dev/null || echo "0")
-else
-    TOTAL_PROCESSED=0
-    TODAY_UPLOADED=0
-    URLHAUS=0
-    HYBRID_ANALYSIS=0
-fi
-
-echo "Feeder Stats: Total=$TOTAL_PROCESSED, Today=$TODAY_UPLOADED, URLhaus=$URLHAUS, Hybrid=$HYBRID_ANALYSIS"
-
-# --- CAPE Statistics (from PostgreSQL via cockpit_api.py) ---
-CAPE_STATS=$(sudo -u postgres python3 /opt/CAPEv2/utils/cockpit_api.py stats 2>/dev/null)
-
-if [ -n "$CAPE_STATS" ] && echo "$CAPE_STATS" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
-    CAPE_TOTAL=$(echo "$CAPE_STATS" | python3 -c "import sys, json; print(json.load(sys.stdin).get('total', 0))")
-    CAPE_RUNNING=$(echo "$CAPE_STATS" | python3 -c "import sys, json; print(json.load(sys.stdin).get('running', 0))")
-    CAPE_COMPLETED=$(echo "$CAPE_STATS" | python3 -c "import sys, json; print(json.load(sys.stdin).get('completed_24h', 0))")
-    CAPE_FAILED=$(echo "$CAPE_STATS" | python3 -c "import sys, json; print(json.load(sys.stdin).get('failed', 0))")
-else
-    CAPE_TOTAL=0
-    CAPE_RUNNING=0
-    CAPE_COMPLETED=0
-    CAPE_FAILED=0
-fi
-
-# Calculate pending (total - completed - failed - running)
-CAPE_PENDING=$((CAPE_TOTAL - CAPE_COMPLETED - CAPE_FAILED - CAPE_RUNNING))
-[ $CAPE_PENDING -lt 0 ] && CAPE_PENDING=0
-
-echo "CAPE Stats: Total=$CAPE_TOTAL, Running=$CAPE_RUNNING, Completed24h=$CAPE_COMPLETED, Failed=$CAPE_FAILED, Pending=$CAPE_PENDING"
-
-# --- System Status ---
-DISK_USAGE=$(df -h /mnt/cape-data 2>/dev/null | tail -1 | awk '{print $5}' || echo "0%")
-DISK_TOTAL=$(df -h /mnt/cape-data 2>/dev/null | tail -1 | awk '{print $2}' || echo "0G")
-DISK_USED=$(df -h /mnt/cape-data 2>/dev/null | tail -1 | awk '{print $3}' || echo "0G")
-
-# Service status
-CAPE_SERVICE=$(systemctl is-active cape.service 2>/dev/null || echo "unknown")
-CAPE_WEB=$(systemctl is-active cape-web.service 2>/dev/null || echo "unknown")
-MWDB_STATUS=$(docker ps --filter "name=mwdb" --format "{{.Status}}" 2>/dev/null | head -1)
-[ -z "$MWDB_STATUS" ] && MWDB_STATUS="stopped"
-echo "$MWDB_STATUS" | grep -qi "up" && MWDB_SERVICE="running" || MWDB_SERVICE="stopped"
-
-# VM status
-VM_RUNNING=$(VBoxManage list runningvms 2>/dev/null | wc -l || echo "0")
-
-echo "System: Disk=$DISK_USAGE ($DISK_USED/$DISK_TOTAL), CAPE=$CAPE_SERVICE, MWDB=$MWDB_SERVICE, VMs=$VM_RUNNING"
-
-# =============================================================================
-# Generate JSON
-# =============================================================================
-
-cat > "$STATUS_DIR/status.json" << EOF
+cat > "$STATUS_DIR/health.json" << EOF
 {
     "timestamp": "$TIMESTAMP",
-    "hostname": "sandbox-server",
-    "feeder": {
-        "total_processed": $TOTAL_PROCESSED,
-        "today_uploaded": $TODAY_UPLOADED,
-        "urlhaus": $URLHAUS,
-        "hybrid_analysis": $HYBRID_ANALYSIS
+    "overall_status": "$OVERALL",
+    "components": {
+        "cape": {
+            "status": "$CAPE_SVC",
+            "web": "$CAPE_WEB",
+            "processor": "$CAPE_PROC"
+        },
+        "mwdb": {
+            "containers_running": $MWDB_RUNNING,
+            "karton_running": $KARTON_RUNNING
+        },
+        "iceporge": {
+            "web": "$ICEPORGE_WEB",
+            "mongod": "$MONGOD"
+        },
+        "infrastructure": {
+            "nginx": "$NGINX",
+            "suricata": "$SURICATA"
+        }
     },
-    "cape": {
+    "cape_stats": {
         "total_tasks": $CAPE_TOTAL,
+        "reported": $CAPE_REPORTED,
         "pending": $CAPE_PENDING,
         "running": $CAPE_RUNNING,
-        "completed_24h": $CAPE_COMPLETED,
-        "failed": $CAPE_FAILED
+        "failed": $CAPE_FAILED,
+        "added_24h": $CAPE_ADDED_24H,
+        "completed_24h": $CAPE_COMPLETED_24H
     },
-    "system": {
-        "disk_usage": "$DISK_USAGE",
-        "disk_total": "$DISK_TOTAL",
-        "disk_used": "$DISK_USED",
-        "cape_service": "$CAPE_SERVICE",
-        "cape_web": "$CAPE_WEB",
-        "mwdb_service": "$MWDB_SERVICE",
-        "vms_running": $VM_RUNNING
+    "feeder_stats": {
+        "total_seen": $FEED_TOTAL,
+        "seen_today": $FEED_TODAY,
+        "seen_7d": $FEED_7D
+    },
+    "disk": {
+        "percent_used": $DISK_PCT,
+        "used": "$DISK_USED",
+        "total": "$DISK_TOTAL",
+        "free": "$DISK_FREE"
     }
 }
 EOF
 
-echo "Status JSON generated: $STATUS_DIR/status.json"
-
-# =============================================================================
-# Sync to webserver
-# =============================================================================
-
-echo "Syncing to webserver..."
-if ssh -o ConnectTimeout=5 -o BatchMode=yes "$WEBSERVER" "mkdir -p $WEBSERVER_PATH" 2>/dev/null; then
-    rsync -az --timeout=60 "$STATUS_DIR/" "$WEBSERVER:$WEBSERVER_PATH/" 2>/dev/null && \
-        echo "[$TIMESTAMP] Status synced successfully" || echo "[$TIMESTAMP] Rsync failed"
-else
-    echo "[$TIMESTAMP] Webserver unreachable"
-fi
+log "Done: CAPE=$CAPE_REPORTED reported, $CAPE_PENDING pending, Disk=${DISK_PCT}%"

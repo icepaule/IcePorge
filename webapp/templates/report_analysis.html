@@ -1,265 +1,50 @@
 {% extends "base.html" %}
-{% block title %}Report Analyse - {{ report_id }}{% endblock %}
+{% block title %}Phishing-Analyse — {{ report_id[:30] }}{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-    <h1>SMTP-Header Analyse</h1>
-    <div>
-        <a href="/report/{{ report_id }}" target="_blank" class="btn btn-secondary">Original Report</a>
-        <a href="/reports" class="btn btn-secondary">Zurück zur Liste</a>
-    </div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;flex-wrap:wrap;gap:0.75rem;">
+  <h1 style="margin:0;font-size:1.4rem;">Phishing-Analyse</h1>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+    <a href="/report/{{ report_id }}/pdf"
+       style="background:#0ea5e9;color:#fff;padding:0.45rem 0.9rem;border-radius:6px;text-decoration:none;font-size:0.85rem;font-weight:600;">
+      ⬇ PDF
+    </a>
+    <a href="/report/{{ report_id }}" target="_blank"
+       style="background:#1e293b;color:#94a3b8;border:1px solid #334155;padding:0.45rem 0.9rem;border-radius:6px;text-decoration:none;font-size:0.85rem;">
+      HTML öffnen
+    </a>
+    <a href="/api/report/{{ report_id }}/headers"
+       style="background:#1e293b;color:#94a3b8;border:1px solid #334155;padding:0.45rem 0.9rem;border-radius:6px;text-decoration:none;font-size:0.85rem;">
+      JSON
+    </a>
+    <a href="/reports"
+       style="background:#1e293b;color:#94a3b8;border:1px solid #334155;padding:0.45rem 0.9rem;border-radius:6px;text-decoration:none;font-size:0.85rem;">
+      ← Liste
+    </a>
+  </div>
 </div>
 
-<!-- Summary Card -->
-<div class="stats-grid">
-    <div class="stat-card stat-{{ verdict }}">
-        <div class="stat-value" style="font-size: 1.5rem;">{{ verdict|upper }}</div>
-        <div class="stat-label">Verdict</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" style="color: {% if score >= 70 %}#ef4444{% elif score >= 40 %}#f59e0b{% else %}#22c55e{% endif %};">
-            {{ score }}
-        </div>
-        <div class="stat-label">Risk Score</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" style="font-size: 1rem; color: #94a3b8;">{{ timestamp[:16] }}</div>
-        <div class="stat-label">Analysiert</div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-value" style="font-size: 1.2rem;">
-            {% if analysis.enhanced %}
-            <span style="color: #22c55e;">✓</span>
-            {% else %}
-            <span style="color: #64748b;">-</span>
-            {% endif %}
-        </div>
-        <div class="stat-label">Enhanced</div>
-    </div>
-</div>
-
-<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-
-    <!-- Left Column -->
-    <div>
-        <!-- Sender Info -->
-        <div class="card">
-            <h2>📧 Absender-Information</h2>
-            <table>
-                <tr><td style="width: 150px;">E-Mail</td><td><strong style="color: #f97316;">{{ analysis.sender.email or 'N/A' }}</strong></td></tr>
-                <tr><td>Display Name</td><td>{{ analysis.sender.display_name or '-' }}</td></tr>
-                <tr><td>Betreff</td><td>{{ analysis.sender.subject or '-' }}</td></tr>
-                <tr><td>Ursprungs-IP</td><td style="font-family: monospace;">{{ analysis.origin.ip or 'Nicht ermittelt' }}</td></tr>
-            </table>
-            {% if analysis.brand_impersonation %}
-            <div style="margin-top: 1rem; padding: 1rem; background: #7f1d1d; border-radius: 8px;">
-                <strong style="color: #fca5a5;">⚠️ Brand Impersonation:</strong>
-                <span style="color: #fecaca;">{{ analysis.brand_impersonation }}</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Authentication -->
-        <div class="card">
-            <h2>🔐 E-Mail-Authentifizierung</h2>
-            <table>
-                <thead>
-                    <tr><th>Prüfung</th><th>Ergebnis</th><th>Details</th></tr>
-                </thead>
-                <tbody>
-                    {% set auth = analysis.authentication %}
-                    <tr>
-                        <td>SPF</td>
-                        <td>
-                            {% set spf = auth.get('spf', {}) %}
-                            {% set spf_result = spf.get('result', 'none') %}
-                            <span style="color: {% if 'pass' in spf_result.lower() %}#22c55e{% elif 'fail' in spf_result.lower() %}#ef4444{% else %}#f59e0b{% endif %}; font-weight: bold;">
-                                {{ spf_result|upper }}
-                            </span>
-                        </td>
-                        <td style="color: #94a3b8; font-size: 0.85rem;">{{ spf.get('source', '') }}</td>
-                    </tr>
-                    <tr>
-                        <td>DKIM</td>
-                        <td>
-                            {% set dkim = auth.get('dkim', {}) %}
-                            {% set dkim_result = dkim.get('result', 'none') %}
-                            <span style="color: {% if 'pass' in dkim_result.lower() %}#22c55e{% elif 'fail' in dkim_result.lower() %}#ef4444{% else %}#f59e0b{% endif %}; font-weight: bold;">
-                                {{ dkim_result|upper }}
-                            </span>
-                        </td>
-                        <td style="color: #94a3b8; font-size: 0.85rem;">{{ dkim.get('source', '') }}</td>
-                    </tr>
-                    <tr>
-                        <td>DMARC</td>
-                        <td>
-                            {% set dmarc = auth.get('dmarc', {}) %}
-                            {% set dmarc_result = dmarc.get('result', 'none') %}
-                            <span style="color: {% if 'pass' in dmarc_result.lower() %}#22c55e{% elif 'fail' in dmarc_result.lower() %}#ef4444{% else %}#f59e0b{% endif %}; font-weight: bold;">
-                                {{ dmarc_result|upper }}
-                            </span>
-                        </td>
-                        <td style="color: #94a3b8; font-size: 0.85rem;">{{ dmarc.get('source', '') }}</td>
-                    </tr>
-                </tbody>
-            </table>
-            <div style="margin-top: 1rem; padding: 0.75rem; background: #0f172a; border-radius: 6px; font-size: 0.85rem;">
-                <strong>TLS:</strong> {{ analysis.origin.tls or 'Unbekannt' }} |
-                <strong>ARC:</strong> {{ analysis.origin.arc or 'Unbekannt' }}
-            </div>
-        </div>
-
-        <!-- Geolocation -->
-        {% if analysis.geolocation %}
-        <div class="card">
-            <h2>🌍 IP Geolocation</h2>
-            <table>
-                <thead>
-                    <tr><th>IP</th><th>Land</th><th>Stadt</th><th>ISP</th></tr>
-                </thead>
-                <tbody>
-                    {% for geo in analysis.geolocation %}
-                    <tr>
-                        <td style="font-family: monospace;">{{ geo.ip }}</td>
-                        <td>
-                            {{ geo.country }} ({{ geo.country_code }})
-                            {% if geo.country_code in ['BR', 'RU', 'CN', 'NG', 'IN', 'PK'] %}
-                            <span style="color: #ef4444;">⚠️</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ geo.city }}</td>
-                        <td style="font-size: 0.85rem; color: #94a3b8;">{{ geo.isp }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Right Column -->
-    <div>
-        <!-- Mail Routing Chain -->
-        <div class="card">
-            <h2>📨 Mail-Routing (Received-Chain)</h2>
-            {% if analysis.routing_chain %}
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr><th>#</th><th>Von</th><th>Nach</th><th>IP(s)</th><th>TLS</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for hop in analysis.routing_chain %}
-                        <tr>
-                            <td>{{ hop.hop }}</td>
-                            <td style="font-size: 0.85rem;">{{ hop.from_server }}</td>
-                            <td style="font-size: 0.85rem;">{{ hop.to_server }}</td>
-                            <td style="font-family: monospace; font-size: 0.8rem;">{{ hop.ips }}</td>
-                            <td>
-                                {% if hop.tls and hop.tls != 'N/A' %}
-                                <span style="color: #22c55e;">✓</span>
-                                {% else %}
-                                <span style="color: #ef4444;">✗</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            <div style="margin-top: 1rem; padding: 1rem; background: #1e3a5f; border-radius: 6px;">
-                <strong style="color: #7dd3fc;">Ursprung der Mail:</strong>
-                <p style="margin-top: 0.5rem; color: #e2e8f0;">
-                    {% if analysis.routing_chain|length > 0 %}
-                    Die E-Mail wurde ursprünglich von
-                    <strong>{{ analysis.routing_chain[-1].from_server }}</strong>
-                    {% if analysis.routing_chain[-1].ips != 'N/A' %}
-                    ({{ analysis.routing_chain[-1].ips }})
-                    {% endif %}
-                    gesendet.
-                    {% else %}
-                    Ursprung konnte nicht ermittelt werden.
-                    {% endif %}
-                </p>
-            </div>
-            {% else %}
-            <p style="color: #64748b;">Keine Routing-Informationen verfügbar</p>
-            {% endif %}
-        </div>
-
-        <!-- Security Systems -->
-        <div class="card">
-            <h2>🛡️ Erkannte Security-Systeme</h2>
-            <div style="margin-top: 1rem;">
-                {% if analysis.security_systems %}
-                {% for system in analysis.security_systems %}
-                <span class="badge" style="background: #1e3a5f; color: #7dd3fc; margin: 0.25rem;">{{ system }}</span>
-                {% endfor %}
-                {% else %}
-                <p style="color: #64748b;">Keine Security-Systeme in den Headern erkannt</p>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Anomalies -->
-        {% if analysis.anomalies %}
-        <div class="card" style="border: 1px solid #7f1d1d;">
-            <h2 style="color: #fca5a5;">⚠️ Erkannte Anomalien</h2>
-            <ul style="margin-top: 1rem; color: #fecaca;">
-                {% for anomaly in analysis.anomalies %}
-                <li>{{ anomaly }}</li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-    </div>
-</div>
-
-<!-- Security Recommendations -->
-{% if analysis.recommendations %}
-<div class="card" style="margin-top: 1.5rem; border: 1px solid #f59e0b;">
-    <h2 style="color: #fcd34d;">🔧 Security-Empfehlungen für Mail-Gateway-Verbesserung</h2>
-    <p style="color: #94a3b8; margin-bottom: 1.5rem;">
-        Basierend auf dieser Analyse sollten folgende Maßnahmen implementiert werden:
-    </p>
-
-    {% for rec in analysis.recommendations %}
-    <div style="margin-bottom: 1.5rem; padding: 1rem; background: #1e293b; border-radius: 8px; border-left: 4px solid #f59e0b;">
-        <h3 style="color: #fcd34d; font-size: 1rem; margin-bottom: 0.5rem;">{{ rec.component }}</h3>
-        <p style="margin-bottom: 0.5rem;"><strong style="color: #ef4444;">Problem:</strong> {{ rec.issue }}</p>
-        <p><strong style="color: #22c55e;">Empfehlung:</strong> {{ rec.recommendation }}</p>
-    </div>
-    {% endfor %}
-
-    <div style="margin-top: 1.5rem; padding: 1rem; background: #14532d; border-radius: 8px;">
-        <h3 style="color: #86efac; margin-bottom: 0.5rem;">📋 Zusammenfassung für IT-Security</h3>
-        <ul style="color: #d1fae5;">
-            {% if not analysis.authentication.get('spf', {}).get('result', '')|lower == 'pass' %}
-            <li>SPF-Validierung mit reject/quarantine Policy aktivieren</li>
-            {% endif %}
-            {% if not analysis.authentication.get('dkim', {}).get('result', '')|lower == 'pass' %}
-            <li>DKIM-Signaturprüfung implementieren</li>
-            {% endif %}
-            {% if not analysis.authentication.get('dmarc', {}).get('result', '')|lower == 'pass' %}
-            <li>DMARC-Policy mit Enforcement einrichten</li>
-            {% endif %}
-            {% if analysis.origin.arc == 'Nein' %}
-            <li>ARC (Authenticated Received Chain) für Mail-Forwarding aktivieren</li>
-            {% endif %}
-            {% if analysis.origin.tls == 'Nein' %}
-            <li>TLS-Verschlüsselung für alle Mail-Transfers erzwingen</li>
-            {% endif %}
-        </ul>
-    </div>
+{% if meta %}
+{% set ms = meta.get('score', 0) %}
+{% set verdict = meta.get('verdict', 'unknown') %}
+{% set vc = '#dc2626' if verdict == 'malicious' else ('#f59e0b' if verdict == 'suspicious' else ('#22c55e' if verdict == 'clean' else '#64748b')) %}
+<div style="background:#1e293b;border:1px solid #334155;border-radius:10px;padding:1.25rem;margin-bottom:1.5rem;display:flex;gap:2rem;flex-wrap:wrap;align-items:center;">
+  <div style="text-align:center;">
+    <div style="font-size:2rem;font-weight:800;color:{{ vc }};">{{ "%.1f"|format(ms) }}</div>
+    <div style="color:#64748b;font-size:0.75rem;">Score</div>
+  </div>
+  <div>
+    <div style="font-size:1.1rem;font-weight:700;color:{{ vc }};">{{ verdict|upper }}</div>
+    <div style="color:#94a3b8;font-size:0.85rem;margin-top:0.2rem;">{{ meta.get('subject','') }}</div>
+    <div style="color:#64748b;font-size:0.8rem;">Von: {{ meta.get('sender','') }}</div>
+  </div>
+  <div style="color:#475569;font-size:0.8rem;margin-left:auto;">{{ meta.get('timestamp','')[:16] }}</div>
 </div>
 {% endif %}
 
-<!-- API Links -->
-<div class="card" style="margin-top: 1.5rem;">
-    <h2>🔌 API & Export</h2>
-    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-        <a href="/api/report/{{ report_id }}/headers" target="_blank" class="btn btn-secondary">Header-Analyse JSON</a>
-        <a href="/report/{{ report_id }}" target="_blank" class="btn btn-secondary">Original HTML Report</a>
-    </div>
+<!-- Vollständiger Report-Inhalt -->
+<div style="background:#0f172a;">
+  {{ report_body|safe }}
 </div>
+
 {% endblock %}
