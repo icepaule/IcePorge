@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IcePorge – Malware-Analyse &amp; Threat-Intelligence-Stack</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root { --primary:#1a56db; --primary-light:#e8effc; --bg:#f8fafc; --card:#ffffff; --text:#1e293b; --text-muted:#64748b; --border:#e2e8f0; --accent:#059669; --accent-light:#ecfdf5; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.6; }
+  .container { max-width:1100px; margin:0 auto; padding:0 24px; }
+  header { background:linear-gradient(135deg,#1e3a5f 0%,#1a56db 100%); color:white; padding:60px 0 50px; }
+  header h1 { font-size:2.5rem; margin-bottom:12px; display:flex; align-items:center; gap:16px; }
+  header .icon { width:48px; height:48px; flex-shrink:0; }
+  header p { font-size:1.15rem; opacity:0.9; max-width:700px; }
+  .badge { display:inline-block; background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:20px; font-size:0.85rem; margin-top:16px; }
+  nav { background:var(--card); border-bottom:1px solid var(--border); position:sticky; top:0; box-shadow:0 1px 3px rgba(0,0,0,0.05); }
+  nav .container { display:flex; overflow-x:auto; }
+  nav a { padding:14px 20px; text-decoration:none; color:var(--text-muted); font-size:0.9rem; font-weight:500; white-space:nowrap; border-bottom:2px solid transparent; }
+  nav a:hover { color:var(--primary); border-bottom-color:var(--primary); }
+  section { padding:50px 0; }
+  section:nth-child(even) { background:var(--card); }
+  h2 { font-size:1.8rem; margin-bottom:24px; }
+  h3 { font-size:1.2rem; margin:20px 0 12px; }
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:20px; margin-top:20px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  section:nth-child(even) .card { background:var(--bg); }
+  .card h3 { margin-top:0; color:var(--primary); }
+  .card p { color:var(--text-muted); font-size:0.95rem; }
+  table { width:100%; border-collapse:collapse; margin:16px 0; font-size:0.9rem; }
+  th, td { padding:10px 14px; text-align:left; border-bottom:1px solid var(--border); }
+  th { background:var(--primary-light); color:var(--primary); font-weight:600; }
+  .mermaid-wrap { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:24px; margin:24px 0; overflow-x:auto; }
+  section:nth-child(even) .mermaid-wrap { background:var(--bg); }
+  pre:not(.mermaid) { background:#1e293b; color:#e2e8f0; padding:20px; border-radius:10px; overflow-x:auto; font-size:0.85rem; }
+  code { background:var(--primary-light); padding:2px 6px; border-radius:4px; font-size:0.85rem; }
+  pre code { background:none; padding:0; }
+  .tech-grid { display:flex; flex-wrap:wrap; gap:12px; margin:20px 0; }
+  .tech-item { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 18px; font-size:0.9rem; font-weight:500; }
+  section:nth-child(even) .tech-item { background:var(--bg); }
+  footer { background:#1e293b; color:#94a3b8; padding:40px 0; text-align:center; font-size:0.85rem; }
+  footer a { color:#60a5fa; text-decoration:none; }
+  .shot-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px; margin-top:20px; }
+  .shot-grid figure { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+  section:nth-child(even) .shot-grid figure { background:var(--bg); }
+  .shot-grid img { width:100%; height:auto; border-radius:6px; display:block; }
+  .shot-grid figcaption { color:var(--text-muted); font-size:0.85rem; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <h1>
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+      IcePorge
+    </h1>
+    <p>Modularer, unternehmenstauglicher Malware-Analyse- und Threat-Intelligence-Stack: dynamisches Sandboxing, statische Reverse-Engineering-Pipeline, Threat-Intel-Feeds und LLM-gestützte Analyse in einem durchgängigen Workflow.</p>
+    <span class="badge">MIT License · Malware-Analyse &amp; Threat Intelligence</span>
+  </div>
+</header>
+
+<nav>
+  <div class="container">
+    <a href="#ueberblick">Überblick</a>
+    <a href="#architektur">Architektur</a>
+    <a href="#tech-stack">Tech-Stack</a>
+    <a href="#screenshots">Screenshots</a>
+    <a href="#quickstart">Quickstart</a>
+  </div>
+</nav>
+
+<section id="ueberblick">
+  <div class="container">
+    <h2>Überblick</h2>
+    <p>IcePorge orchestriert mehrere spezialisierte Sub-Repositories zu einer durchgängigen Malware-Analyse-Pipeline: Bedrohungsdaten werden aus öffentlichen Threat-Intel-Feeds eingesammelt, automatisiert an eine Sandbox zur dynamischen Verhaltensanalyse übergeben, in einem zentralen Malware-Repository verwaltet und optional per Ghidra headless dekompiliert sowie durch ein LLM-gestütztes RAG-System angereichert. Ein integriertes Web-Dashboard bündelt Phishing-Report-Auswertung und System-Monitoring über die gesamte Kette.</p>
+    <div class="card-grid">
+      <div class="card">
+        <h3>Threat-Intel-Ingestion</h3>
+        <p>Automatisierter Import aus URLhaus, ThreatFox, MalwareBazaar, Hybrid Analysis und Ransomware.live als kontinuierliche Sample- und IOC-Quelle.</p>
+      </div>
+      <div class="card">
+        <h3>Dynamische Analyse</h3>
+        <p>CAPE Sandbox für Verhaltensanalyse und Config-Extraktion, automatisierte Einreichung per Tag-Routing und Vorfilterung, IOC-Export nach MISP.</p>
+      </div>
+      <div class="card">
+        <h3>Statische Analyse &amp; KI</h3>
+        <p>Ghidra Headless für automatisierte Dekompilierung, ergänzt durch LLM-Unterstützung (lokal via Ollama oder Cloud via AWS Bedrock) und eine RAG-Pipeline mit Vektorsuche.</p>
+      </div>
+      <div class="card">
+        <h3>Web-Dashboard</h3>
+        <p>Zentrale Oberfläche für Phishing-Reports (SMTP-Header, SPF/DKIM/DMARC, Routing-Kette), CAPE-Analysenübersicht und System-Health-Status.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="architektur">
+  <div class="container">
+    <h2>Architektur</h2>
+    <p>Threat-Intelligence-Feeds werden von zwei Aggregatoren eingesammelt und in die Analyse-Plattform eingespeist. Dort orchestriert Karton den Fluss zwischen dem zentralen Malware-Repository (MWDB) und der CAPE Sandbox; Ergebnisse fließen automatisch in MISP und in die Phishing-Mail-Analyse. Eine separate, GPU-gestützte KI-Ebene übernimmt Ghidra-Dekompilierung und RAG-gestützte LLM-Analyse und ist über einen gesicherten Tunnel an die Analyse-Plattform angebunden.</p>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+flowchart TB
+    subgraph FEEDS["Threat-Intelligence-Feeds"]
+        F1[URLhaus]
+        F2[ThreatFox]
+        F3[MalwareBazaar]
+        F4[Hybrid Analysis]
+        F5[Ransomware.live]
+    end
+
+    subgraph AGGREGATORS["Feed-Aggregatoren"]
+        AGG1["MWDB-Feeder<br/>Multi-Source"]
+        AGG2["CAPE-Feed<br/>MalwareBazaar"]
+    end
+
+    subgraph PLATFORM["Analyse-Plattform (Sandbox-Server)"]
+        MWDB["MWDB-Core<br/>PostgreSQL + MinIO"]
+        KARTON["Karton<br/>Orchestrator"]
+        CAPE["CAPE Sandbox<br/>Dynamische Analyse"]
+        SUBMITTER["karton-cape-submitter<br/>Auto-Pipeline"]
+        MAILER["CAPE-Mailer<br/>Phishing-Analyse"]
+        MISP["MISP<br/>Threat Intel"]
+        DASH["Web-Dashboard<br/>Reports + Status"]
+    end
+
+    subgraph AI["KI-Ebene (GPU-Server, via VPN-Tunnel)"]
+        GHIDRA["Ghidra-Orchestrator<br/>Headless Decompilation"]
+        RAG["Malware-RAG<br/>Vector-DB"]
+        OLLAMA["Ollama / AWS Bedrock<br/>LLM-Inferenz"]
+    end
+
+    FEEDS --> AGG1
+    FEEDS --> AGG2
+    AGG1 --> MWDB
+    AGG2 --> CAPE
+    MWDB --> KARTON
+    KARTON --> CAPE
+    KARTON --> SUBMITTER
+    SUBMITTER --> CAPE
+    CAPE --> MISP
+    CAPE --> MAILER
+    MAILER --> DASH
+    CAPE --> DASH
+    KARTON -. Reverse Engineering .-> GHIDRA
+    GHIDRA --> RAG
+    RAG --> OLLAMA
+    OLLAMA -. Analyse-Ergebnis .-> DASH
+      </pre>
+    </div>
+  </div>
+</section>
+
+<section id="tech-stack">
+  <div class="container">
+    <h2>Tech-Stack</h2>
+    <div class="tech-grid">
+      <span class="tech-item">Python / Flask</span>
+      <span class="tech-item">CAPE Sandbox</span>
+      <span class="tech-item">MWDB-Core</span>
+      <span class="tech-item">Karton</span>
+      <span class="tech-item">PostgreSQL</span>
+      <span class="tech-item">MinIO</span>
+      <span class="tech-item">MISP</span>
+      <span class="tech-item">Ghidra Headless</span>
+      <span class="tech-item">Ollama</span>
+      <span class="tech-item">AWS Bedrock</span>
+      <span class="tech-item">Vektor-DB / RAG</span>
+      <span class="tech-item">Cockpit</span>
+      <span class="tech-item">Docker</span>
+      <span class="tech-item">WireGuard</span>
+      <span class="tech-item">Puppeteer</span>
+      <span class="tech-item">TruffleHog</span>
+      <span class="tech-item">AWS EC2</span>
+    </div>
+  </div>
+</section>
+
+<section id="screenshots">
+  <div class="container">
+    <h2>Screenshots</h2>
+    <p>Ausschnitte aus den integrierten Management-Oberflächen.</p>
+    <div class="shot-grid">
+      <figure>
+        <img src="screenshots/mwdb-webui.png" alt="MWDB Web-Interface" loading="lazy">
+        <figcaption>MWDB Web-Interface – zentrales Malware-Repository mit Tagging und Karton-Integration.</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/mwdb-manager.png" alt="MWDB Stack Manager (Cockpit)" loading="lazy">
+        <figcaption>MWDB Stack Manager (Cockpit) – Service- und Container-Status der MWDB-Pipeline.</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/cape-manager.png" alt="CAPE Sandbox Manager (Cockpit)" loading="lazy">
+        <figcaption>CAPE Sandbox Manager (Cockpit) – VM- und Service-Status der Sandbox.</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="quickstart">
+  <div class="container">
+    <h2>Quickstart</h2>
+    <p>On-Premise-Installation aus dem Hauptrepository:</p>
+    <pre><code>git clone https://github.com/icepaule/IcePorge.git /opt/iceporge
+cd /opt/iceporge
+
+# Konfiguration anlegen
+cp install/config.env.example install/config.env
+nano install/config.env
+
+# Installation starten
+sudo ./install/install-iceporge.sh --config install/config.env
+
+# Alle Komponenten-Repositories klonen
+./scripts/clone-all.sh</code></pre>
+    <p>Für ein vollständiges AWS-CloudShell-Deployment siehe <code>docs/aws/AWS-CLOUDSHELL-DEPLOY.md</code> im Repository.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>IcePorge ist Teil des <a href="https://icepaule.github.io/">icepaule</a>-Projekt-Portfolios.</p>
+    <p><a href="https://github.com/icepaule/IcePorge">Quellcode auf GitHub ansehen</a></p>
+  </div>
+</footer>
+
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>
