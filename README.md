@@ -310,6 +310,21 @@ Contributions welcome! Please:
 2. Create a feature branch
 3. Submit a pull request
 
+## Documentation
+
+### Core Guides
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common issues and fixes
+- **[CAPE AI Analysis](docs/CAPE-AI-ANALYSIS.md)** - AI-enhanced malware analysis system
+- **[AWS Deployment](docs/aws/AWS-CLOUDSHELL-DEPLOY.md)** - Cloud deployment guide
+- **[Changelog August 2026](docs/CHANGELOG-2026-08.md)** - Recent fixes and improvements
+
+### Operational Manuals (German)
+- [ITSO Production Setup](docs/ITSO_PRODUCTION_SETUP.md)
+- [Security Operations Manual](docs/SECURITY-BETRIEBSHANDBUCH.md)
+- [TruffleHog Operations](docs/TRUFFLEHOG-BETRIEBSHANDBUCH.md)
+
+---
+
 ## Support
 
 - Open an issue in the relevant repository
