@@ -162,8 +162,34 @@ EOF
 
 ---
 
+---
+
+#### 6. Binwalk Data Not Appearing in API Response
+**Issue:** Binwalk data extracted correctly in Python, but API returns `binwalk: null`.
+
+**Root Cause:** `analyze_cape_report()` function does not include `binwalk` field in return dict.
+
+**Fix:** `/opt/iceporge/ai/cape_analyzer.py` line 1392
+```python
+return {
+    ...
+    'ghidra': data.get('ghidra', {}),
+    'binwalk': data.get('binwalk', {}),  # ← ADDED
+    'static_strings': data.get('static_strings', []),
+    ...
+}
+```
+
+**Impact:** ✅ Binwalk data now visible in API responses and web dashboard
+- Embedded files count
+- Entropy anomalies
+- Certificate detection
+
+---
+
 ### 🎯 Next Steps
 
+- [x] Binwalk API integration ✅ (Fixed 2026-08-07)
 - [ ] Monitor Ghidra timeout rate over 1 week
 - [ ] Consider adaptive timeout based on binary size
 - [ ] Add metrics dashboard for analysis performance

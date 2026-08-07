@@ -309,6 +309,99 @@ tail -f /opt/CAPEv2/log/web.log
 
 ---
 
+## Issue #6: Binwalk Data Not Appearing in API Response
+
+**Symptom:**
+- Direct Python test shows Binwalk data correctly
+- API endpoint `/cape/ID/llm` returns `binwalk: null`
+- AI prompt includes Binwalk section but output JSON missing it
+
+**Example:**
+```bash
+# Direct test works
+python3 -c "from cape_analyzer import extract_cape_data; print(extract_cape_data('/opt/CAPEv2/storage/analyses/6219')['binwalk'])"
+# Output: {'status': 'success', 'embedded_files': [...], ...}
+
+# API shows null
+curl http://localhost:8085/cape/6219/llm | jq '.binwalk'
+# Output: null
+```
+
+### Root Cause
+
+The `analyze_cape_report()` function extracts Binwalk data via `extract_cape_data()` but **does not include it** in the return dictionary sent to the API.
+
+**File:** `/opt/iceporge/ai/cape_analyzer.py`  
+**Line:** 1370-1401
+
+```python
+# Lines 1351: Data extracted correctly
+data = extract_cape_data(report_dir, skip_ghidra=skip_ghidra)
+
+# Lines 1370-1401: Return dict missing binwalk field
+return {
+    ...
+    'ghidra': data.get('ghidra', {}),
+    # 'binwalk': data.get('binwalk', {}),  # ← MISSING!
+    'static_strings': data.get('static_strings', []),
+    ...
+}
+```
+
+### Fix
+
+Add the missing field to the return dictionary:
+
+```python
+return {
+    ...
+    'ghidra': data.get('ghidra', {}),
+    'binwalk': data.get('binwalk', {}),  # ← ADD THIS LINE
+    'static_strings': data.get('static_strings', []),
+    ...
+}
+```
+
+### Apply Fix
+
+```bash
+# 1. Edit file
+nano /opt/iceporge/ai/cape_analyzer.py
+# Add line 1392: 'binwalk': data.get('binwalk', {}),
+
+# 2. Clear Python cache
+rm -rf /opt/iceporge/ai/__pycache__/
+
+# 3. Delete cached analysis
+rm -f /opt/CAPEv2/storage/analyses/6219/reports/llm_analysis.json
+
+# 4. Restart service
+systemctl restart iceporge-web.service
+
+# 5. Trigger fresh analysis
+curl "http://localhost:8085/cape/6219/llm?refresh=1" | jq '.binwalk'
+```
+
+### Verification
+
+```bash
+# Should show success status
+curl -s "http://localhost:8085/cape/6219/llm" | jq -r '.binwalk.status'
+# Expected: success
+
+# Should show embedded files count
+curl -s "http://localhost:8085/cape/6219/llm" | jq '.binwalk.embedded_files | length'
+# Expected: 8 (for Task 6219)
+
+# Should show entropy peaks
+curl -s "http://localhost:8085/cape/6219/llm" | jq '.binwalk.entropy_peaks | length'
+# Expected: 8 (for Task 6219)
+```
+
+**Status:** ✅ Fixed (2026-08-07)
+
+---
+
 ## Getting Help
 
 If you encounter issues not covered here:

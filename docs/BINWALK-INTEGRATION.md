@@ -108,7 +108,23 @@ if resolved_binary:
 - No heavy dependencies
 - High value-to-cost ratio
 
-#### 3. Prompt Integration in `build_analysis_prompt()`
+#### 3. API Response Integration in `analyze_cape_report()`
+**Lines:** 1392
+**Fixed:** Added missing `binwalk` field to return dict
+
+```python
+return {
+    ...
+    'ghidra': data.get('ghidra', {}),
+    'binwalk': data.get('binwalk', {}),  # ← ADDED (was missing!)
+    'static_strings': data.get('static_strings', []),
+    ...
+}
+```
+
+**Bug:** Data was extracted correctly, but not included in API response JSON.
+
+#### 4. Prompt Integration in `build_analysis_prompt()`
 **Lines:** 1046-1080
 
 ```python
